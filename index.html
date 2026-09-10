@@ -25,7 +25,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
-  <!-- پلیر رسمی انیمیشن‌های حرفه‌ای Lottie -->
+  <!-- پلیر رسمی Lottie -->
   <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
   
   <script>
@@ -44,10 +44,18 @@
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
 
     .glass-scene {
-      background: linear-gradient(135deg, rgba(30, 27, 75, 0.92), rgba(15, 23, 42, 0.95));
+      background: linear-gradient(135deg, rgba(30, 27, 75, 0.94), rgba(15, 23, 42, 0.96));
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    
+    @keyframes floatWidget {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    .floating-companion {
+      animation: floatWidget 4s ease-in-out infinite;
     }
   </style>
 </head>
@@ -83,82 +91,155 @@
       }
     }
 
-    // آرایه انیمیشن‌های تصویرسازی‌شده حرفه‌ای Lottie
+    // انیمیشن‌های تصحیح‌شده و تست‌شده بدون باگ
     const COMPANIONS = [
       {
         id: 'milo',
         name: 'میلو',
-        title: 'گربه متفکر و کتابخوان',
+        title: 'همراه آرام و ضد فرسودگی',
         emoji: '🐱',
-        desc: 'آرامش بخش و همنشین مطالعه با لوفای',
-        // انیمیشن وکتور گربه پشت میز کار
-        lottieUrl: 'https://assets9.lottiefiles.com/packages/lf20_sSF6EG.json'
+        desc: 'مطالعه آرام همراه با لوفای و بافتنی ذهنی',
+        lottieUrl: 'https://assets9.lottiefiles.com/packages/lf20_sSF6EG.json',
+        quotes: [
+          'عجله نکن، پیوستگی آهسته و پیوسته کوه‌ها رو جابه‌جا می‌کنه 🧶',
+          'هر وقت احساس خستگی کردی، فقط ۵ دقیقه چشم‌هات رو ببند ☕',
+          'من کنارتم! یک پارت تمرکز باهم بریم جلو؟ ✨'
+        ]
       },
       {
         id: 'hooty',
         name: 'هدهد دانا',
-        title: 'کتابخوان حرفه‌ای',
+        title: 'مشاور تحلیلی و رفرنس‌خوانی',
         emoji: '🦉',
-        desc: 'ورق زدن پیوسته کتاب در فضای کلبه',
-        // انیمیشن کتاب متحرک سه‌بعدی و پرنده
-        lottieUrl: 'https://assets4.lottiefiles.com/packages/lf20_1LhsaB.json'
+        desc: 'تمرکز عمیق، منطق و تسلط بر مباحث سنگین',
+        lottieUrl: 'https://assets4.lottiefiles.com/packages/lf20_1LhsaB.json',
+        quotes: [
+          'مفاهیم عمیق با مرورهای فاصله‌دار در حافظه بلندمدت تثبیت می‌شن 📖',
+          'امروز اولویتت تسک‌های حیاتیه؛ اول سنگ‌های بزرگ رو بردار 🎯',
+          'صفحه به صفحه باهم پیش می‌ریم، هیچ نکته‌ای جا نمی‌مونه!'
+        ]
       },
       {
         id: 'mocha',
         name: 'موکا',
-        title: 'پاندای قهوه‌نوش و صبور',
+        title: 'پاندای حامی و آرامش‌بخش',
         emoji: '🦊',
-        desc: 'ضد اضطراب و همراه ریتم بدون خستگی',
-        // پاندای تصویرسازی‌شده
-        lottieUrl: 'https://assets10.lottiefiles.com/packages/lf20_q5pk6p1k.json'
+        desc: 'کاهش اضطراب امتحان و ایجاد حس دلگرمی',
+        // لینک جدید و تست‌شده بدون خطا برای موکا
+        lottieUrl: 'https://assets3.lottiefiles.com/packages/lf20_c9g2nptd.json',
+        quotes: [
+          'نفس عمیق بکش... تو تا اینجا عالی اومدی و از پس بقیه‌ش هم برمیای 🍵',
+          'استرس طبیعیه، فقط نشونه اینه که آینده‌ت برات مهمه 🌸',
+          'یک چای گرم بریز تا با آرامش بریم سراغ تسک بعدی.'
+        ]
       },
       {
         id: 'sprout',
         name: 'جوانه',
-        title: 'گلدان زنده رشد',
+        title: 'نماد پیشرفت روزانه',
         emoji: '🌱',
-        desc: 'رشد و شکوفایی با دقایق تمرکز عمیق',
-        // گیاه در حال رشد در گلدان
-        lottieUrl: 'https://assets9.lottiefiles.com/packages/lf20_m64r7cwa.json'
+        desc: 'رشد و سرسبزی با هر ۲۵ دقیقه مطالعه',
+        lottieUrl: 'https://assets9.lottiefiles.com/packages/lf20_m64r7cwa.json',
+        quotes: [
+          'هر دقیقه تمرکز تو، مثل آب دادن به ریشه‌های این درخته 🌱',
+          'امروز چند درصد نسبت به دیروز رشد کردی؟ همین کافیه ✨',
+          'تک‌تک این ساعت‌ها روز آزمون شکوفه می‌دن!'
+        ]
       },
       {
         id: 'luna',
         name: 'لونا',
-        title: 'ابر رویایی بارانی',
+        title: 'ابر شب‌زنده‌دار و مهربان',
         emoji: '☁️',
-        desc: 'بارش قطرات لطیف آرامش شبانه',
-        // ابر لطیف با رعد و برق و باران نرم
-        lottieUrl: 'https://assets7.lottiefiles.com/packages/lf20_tijmpky4.json'
+        desc: 'تمرکز آرام شبانه زیر باران خلوت',
+        lottieUrl: 'https://assets7.lottiefiles.com/packages/lf20_tijmpky4.json',
+        quotes: [
+          'سکوت شب بهترین فضا برای غرق شدن در دنیای یادگیریه 🌙',
+          'افکار شلوغ رو بسپار به صدای باران و فقط روی همین خط تمرکز کن 🌧️',
+          'همراهتم تا این مسیر رو بدون تنهایی و با آرامش طی کنی.'
+        ]
       },
       {
         id: 'botty',
         name: 'کوچولو',
-        title: 'دستیار رباتیک مدرن',
+        title: 'موتور انضباط و تایم‌ترکینگ',
         emoji: '🤖',
-        desc: 'آنالیز ریتم و مانیتورینگ بهره‌وری',
-        // ربات شناور هوشمند
-        lottieUrl: 'https://assets8.lottiefiles.com/packages/lf20_w51pcehl.json'
+        desc: 'محاسبه دقیق زمان مفید و آنالیز تمرکز',
+        lottieUrl: 'https://assets8.lottiefiles.com/packages/lf20_w51pcehl.json',
+        quotes: [
+          'سیستم‌های یادگیری آماده به کارند! تایمر رو فعال کنیم؟ ⚡',
+          'داده‌های امروز نشون می‌ده بازدهی صبحت فوق‌العاده‌ست 📊',
+          'هدف‌گذاری ۲۵ دقیقه‌ای بیشترین میزان تمرکز بدون افت انرژی رو ایجاد می‌کنه.'
+        ]
       }
     ];
 
-    // قاب شاخه رونده طبیعی در گوشه صفحه
-    function BotanicalCorners() {
+    // ویجت هوشمند و شناور دستیار همراه در گوشه صفحه (همراه دائمی کاربر)
+    function FloatingCompanionWidget({ activeCompanion, displayName }) {
+      const [isOpen, setIsOpen] = useState(false);
+      const [dialogueIndex, setDialogueIndex] = useState(0);
+
+      const currentQuote = useMemo(() => {
+        return activeCompanion.quotes[dialogueIndex % activeCompanion.quotes.length];
+      }, [activeCompanion, dialogueIndex]);
+
+      const handleNextDialogue = (e) => {
+        e.stopPropagation();
+        setDialogueIndex(i => i + 1);
+      };
+
       return (
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-          <svg className="absolute top-0 right-0 w-72 h-72 opacity-60" viewBox="0 0 300 300" fill="none">
-            <path d="M300,0 C230,40 180,105 155,180 C135,235 85,270 15,290" stroke="#86efac" strokeWidth="4" strokeLinecap="round"/>
-            <path d="M220,65 C210,48 230,35 245,45 C245,65 235,75 220,65 Z" fill="#4ade80" />
-            <path d="M175,130 C160,120 165,100 185,105 C195,120 190,135 175,130 Z" fill="#22c55e" />
-            <path d="M145,190 C130,180 140,160 160,168 C165,185 155,198 145,190 Z" fill="#86efac" />
-            <circle cx="178" cy="128" r="3.5" fill="#f472b6" />
-          </svg>
+        <div className="fixed bottom-20 md:bottom-8 left-6 z-40 flex flex-col items-start select-none">
+          {/* کادر صحبت هوشمند */}
+          {isOpen && (
+            <div className="bg-white/95 backdrop-blur-md border border-indigo-150 p-3.5 rounded-2xl shadow-xl max-w-xs mb-2 text-right text-xs space-y-2 animate-fade-in">
+              <div className="flex items-center justify-between border-b pb-1.5">
+                <span className="font-bold text-indigo-700 flex items-center gap-1.5">
+                  <span>{activeCompanion.emoji}</span>
+                  <span>{activeCompanion.name} (همراه تو)</span>
+                </span>
+                <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-slate-600 text-xs">✕</button>
+              </div>
+              <p className="text-slate-700 leading-relaxed font-medium">
+                {currentQuote.replace('تو', `${displayName} جان`)}
+              </p>
+              <div className="flex justify-end pt-1">
+                <button
+                  onClick={handleNextDialogue}
+                  className="text-[10px] text-indigo-600 font-bold hover:underline"
+                >
+                  یک پیام دیگه بگو ✨
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* دکمه شناور کاراکتر */}
+          <div
+            onClick={() => setIsOpen(!isOpen)}
+            className="floating-companion bg-white/90 backdrop-blur-md p-2.5 rounded-full shadow-lg border-2 border-indigo-200 cursor-pointer hover:scale-105 transition-all flex items-center gap-2 group"
+          >
+            <div className="w-9 h-9">
+              <lottie-player
+                key={activeCompanion.id}
+                src={activeCompanion.lottieUrl}
+                background="transparent"
+                speed="1"
+                loop
+                autoplay
+                style={{ width: '100%', height: '100%' }}
+              ></lottie-player>
+            </div>
+            <span className="text-xs font-bold text-slate-700 pl-1.5 hidden group-hover:inline-block">
+              {activeCompanion.name} کنارتونه!
+            </span>
+          </div>
         </div>
       );
     }
 
-    // اتاق تمرکز همراه با کاراکترهای باکیفیت لوفای
-    function FocusRoomView({ onSessionSaved }) {
-      const [selectedBuddy, setSelectedBuddy] = useState(COMPANIONS[0]);
+    // اتاق تمرکز
+    function FocusRoomView({ activeCompanion, setActiveCompanion, onSessionSaved }) {
       const [isSelecting, setIsSelecting] = useState(false);
       const [timeLeft, setTimeLeft] = useState(25 * 60);
       const [selectedMinutes, setSelectedMinutes] = useState(25);
@@ -171,17 +252,9 @@
       const SOUNDS = {
         rain: { title: 'باران دنج', icon: '🌧️', url: 'https://actions.google.com/sounds/v1/weather/rain_heavy.ogg' },
         stream: { title: 'آب و رودخانه', icon: '🌊', url: 'https://actions.google.com/sounds/v1/water/stream_water.ogg' },
-        wind: { title: 'نویز سفید برگ‌ها', icon: '🍃', url: 'https://actions.google.com/sounds/v1/weather/light_wind_trees.ogg' },
+        wind: { title: 'نویز سفید', icon: '🍃', url: 'https://actions.google.com/sounds/v1/weather/light_wind_trees.ogg' },
         cafe: { title: 'کافه خلوت', icon: '☕', url: 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg' }
       };
-
-      useEffect(() => {
-        const savedId = localStorage.getItem('study_companion_id');
-        if (savedId) {
-          const found = COMPANIONS.find(c => c.id === savedId);
-          if (found) setSelectedBuddy(found);
-        }
-      }, []);
 
       useEffect(() => {
         if (audioRef.current) {
@@ -241,13 +314,13 @@
               await supabaseClient.from('study_sessions').insert([{
                 user_id: user.id,
                 duration_minutes: mins,
-                buddy_id: selectedBuddy.id
+                buddy_id: activeCompanion.id
               }]);
             }
           } catch (e) {}
         }
 
-        alert(`آفرین! ${mins} دقیقه تمرکز عمیق با ${selectedBuddy.name} ثبت شد ✨`);
+        alert(`آفرین! ${mins} دقیقه تمرکز عمیق همراه با ${activeCompanion.name} ثبت شد ✨`);
         if (onSessionSaved) onSessionSaved();
         handleReset();
       };
@@ -260,11 +333,11 @@
 
       return (
         <div className="space-y-6 max-w-2xl mx-auto">
-          {/* مدال انتخاب همراه */}
+          {/* کادر انتخاب همراه */}
           {isSelecting ? (
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-md space-y-4">
               <div className="border-b pb-3 flex justify-between items-center">
-                <h3 className="font-bold text-slate-800 text-sm">✨ همراه مطالعه‌ات را انتخاب کن:</h3>
+                <h3 className="font-bold text-slate-800 text-sm">✨ همراه و مشاور مطالعه‌ات را انتخاب کن:</h3>
                 <button onClick={() => setIsSelecting(false)} className="text-xs text-slate-400 hover:text-slate-600">بستن ✕</button>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -272,12 +345,12 @@
                   <div
                     key={b.id}
                     onClick={() => {
-                      setSelectedBuddy(b);
+                      setActiveCompanion(b);
                       localStorage.setItem('study_companion_id', b.id);
                       setIsSelecting(false);
                     }}
-                    className={`cursor-pointer p-4 rounded-2xl border text-center transition-all ${
-                      selectedBuddy.id === b.id 
+                    className={`cursor-pointer p-3.5 rounded-2xl border text-center transition-all ${
+                      activeCompanion.id === b.id 
                         ? 'border-indigo-600 bg-indigo-50/80 shadow-md scale-105' 
                         : 'border-slate-100 bg-white hover:border-indigo-200'
                     }`}
@@ -290,25 +363,25 @@
               </div>
             </div>
           ) : (
-            /* صحنه تمرکز با استیج Lottie */
+            /* صحنه متحرک اختصاصی */
             <div className="glass-scene rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden">
               <div className="flex items-center justify-between relative z-10">
                 <button
                   onClick={() => setIsSelecting(true)}
                   className="text-xs bg-white/10 hover:bg-white/20 px-3.5 py-1.5 rounded-full border border-white/10 font-bold flex items-center gap-2 transition"
                 >
-                  <span>{selectedBuddy.emoji}</span>
-                  <span>تغییر همراه ({selectedBuddy.name}) 🔄</span>
+                  <span>{activeCompanion.emoji}</span>
+                  <span>تغییر همراه ({activeCompanion.name}) 🔄</span>
                 </button>
-                <span className="text-xs text-indigo-200">{selectedBuddy.title}</span>
+                <span className="text-xs text-indigo-200">{activeCompanion.title}</span>
               </div>
 
-              {/* انیمیشن تصویرسازی‌شده حرفه‌ای Lottie */}
+              {/* انیمیشن Lottie کاراکتر فعال */}
               <div className="py-2 relative z-10 flex flex-col items-center justify-center">
                 <div className="w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center">
                   <lottie-player
-                    key={selectedBuddy.id}
-                    src={selectedBuddy.lottieUrl}
+                    key={activeCompanion.id}
+                    src={activeCompanion.lottieUrl}
                     background="transparent"
                     speed="1"
                     loop
@@ -317,7 +390,7 @@
                   ></lottie-player>
                 </div>
                 <p className="mt-2 text-xs font-bold text-indigo-200 bg-black/35 px-4 py-1.5 rounded-full border border-white/10">
-                  {isRunning ? `🤫 ${selectedBuddy.name} کنارت عمیقاً در حال تمرکز است...` : `☕ آماده شروع تمرکز با ${selectedBuddy.name}`}
+                  {isRunning ? `🤫 ${activeCompanion.name} کنارت عمیقاً در حال مطالعه است...` : `☕ ${activeCompanion.quotes[0]}`}
                 </p>
               </div>
 
@@ -350,7 +423,7 @@
                     isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/40'
                   }`}
                 >
-                  {isRunning ? 'مکث مطالعه ⏸' : `شروع تمرکز با ${selectedBuddy.name} ▶`}
+                  {isRunning ? 'مکث مطالعه ⏸' : `شروع تمرکز با ${activeCompanion.name} ▶`}
                 </button>
 
                 {sessionSecondsPassed > 10 && (
@@ -372,7 +445,7 @@
             </div>
           )}
 
-          {/* نوار صداهای طبیعی محیط */}
+          {/* صداهای طبیعی محیط */}
           <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-700 flex items-center gap-1.5">
@@ -414,7 +487,7 @@
       );
     }
 
-    // نرم‌افزار کامل سیستم‌عامل یادگیری با تمام تب‌ها
+    // بدنه اصلی نرم‌افزار با تمام ماژول‌ها
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
       const [checkingAuth, setCheckingAuth] = useState(true);
@@ -441,6 +514,17 @@
       const [goals, setGoals] = useState([]);
       const [profileData, setProfileData] = useState({ fullName: '', avatar: '', age: '', field: '', interests: '' });
       const [refreshKey, setRefreshKey] = useState(0);
+
+      // همراه فعال در تمام بخش‌های سیستم
+      const [activeCompanion, setActiveCompanion] = useState(COMPANIONS[0]);
+
+      useEffect(() => {
+        const savedId = localStorage.getItem('study_companion_id');
+        if (savedId) {
+          const found = COMPANIONS.find(c => c.id === savedId);
+          if (found) setActiveCompanion(found);
+        }
+      }, []);
 
       const displayName = useMemo(() => {
         return profileData.fullName || currentUser?.user_metadata?.full_name || 'کاربر عزیز';
@@ -773,9 +857,10 @@
 
       return (
         <div className="min-h-screen flex bg-[#FAF9FD] relative">
-          <BotanicalCorners />
+          {/* دستیار شناور و زنده همراه در گوشه پایین صفحه */}
+          <FloatingCompanionWidget activeCompanion={activeCompanion} displayName={displayName} />
 
-          {/* سایدبار کامل */}
+          {/* سایدبار کامل با تمام گزینه‌ها */}
           <aside className="hidden md:flex flex-col w-64 bg-white border-l border-slate-200/80 p-6 justify-between fixed top-0 bottom-0 right-0 z-20">
             <div className="space-y-6">
               <div className="flex items-center gap-3">
@@ -866,7 +951,11 @@
               )}
 
               {currentTab === 'focus' && (
-                <FocusRoomView onSessionSaved={() => { triggerRefresh(); syncPush(); }} />
+                <FocusRoomView
+                  activeCompanion={activeCompanion}
+                  setActiveCompanion={setActiveCompanion}
+                  onSessionSaved={() => { triggerRefresh(); syncPush(); }}
+                />
               )}
 
               {currentTab === 'paths' && (
@@ -913,7 +1002,7 @@
             </div>
           </main>
 
-          {/* نوار پایین موبایل */}
+          {/* منوی پایین موبایل */}
           <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-1 z-30">
             {[
               { id: 'dashboard', label: 'خانه', icon: '🏠' },
