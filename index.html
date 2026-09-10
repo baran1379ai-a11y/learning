@@ -15,7 +15,7 @@
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -37,6 +37,62 @@
 
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
+    // اتصال امن به پایگاه داده ابری Supabase
+  const SUPABASE_URL = 'https://lwsndcosdmjxkhnhjhwx.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_6cS5z3_zbFNr0HN0u3ZD9A_c5uVewyV';
+  const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  window.cloudAuth = {
+    async register(email, password) {
+      if (!supabaseClient) return alert('خطا در اتصال به سرویس ابری');
+      const { data, error } = await supabaseClient.auth.signUp({ email: email.trim(), password: password });
+      if (error) { alert('خطا در ثبت‌نام: ' + error.message); return null; }
+      alert('ایمیل تایید ارسال شد! لطفاً جیمیل خود را بررسی و روی لینک تایید بزنید.');
+      return data.user;
+    },
+    async login(email, password) {
+      if (!supabaseClient) return alert('خطا در اتصال به سرویس ابری');
+      const { data, error } = await supabaseClient.auth.signInWithPassword({ email: email.trim(), password: password });
+      if (error) { alert('خطا در ورود: ' + error.message); return null; }
+      alert('با موفقیت وارد شدید!');
+      return data.user;
+    },
+    async getCurrentUser() {
+      if (!supabaseClient) return null;
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      return user;
+    },
+    async syncAllToCloud() {
+      if (!supabaseClient) return;
+      const user = await this.getCurrentUser();
+      if (!user) return;
+      const backup = {
+        paths: await db.paths.toArray(),
+        tasks: await db.tasks.toArray(),
+        topics: await db.topics.toArray(),
+        flashcards: await db.flashcards.toArray(),
+        quizzes: await db.quizzes.toArray(),
+        sessions: await db.sessions.toArray(),
+        goals: await db.goals.toArray()
+      };
+      await supabaseClient.from('user_data').upsert({ id: user.id, data: backup, updated_at: new Date().toISOString() });
+    },
+    async loadAllFromCloud() {
+      if (!supabaseClient) return;
+      const user = await this.getCurrentUser();
+      if (!user) return;
+      const { data, error } = await supabaseClient.from('user_data').select('data').eq('id', user.id).single();
+      if (error || !data || !data.data) return;
+      const cloudData = data.data;
+      if (cloudData.paths) await db.paths.bulkPut(cloudData.paths);
+      if (cloudData.tasks) await db.tasks.bulkPut(cloudData.tasks);
+      if (cloudData.topics) await db.topics.bulkPut(cloudData.topics);
+      if (cloudData.flashcards) await db.flashcards.bulkPut(cloudData.flashcards);
+      if (cloudData.quizzes) await db.quizzes.bulkPut(cloudData.quizzes);
+      if (cloudData.sessions) await db.sessions.bulkPut(cloudData.sessions);
+      if (cloudData.goals) await db.goals.bulkPut(cloudData.goals);
+    }
+  };
 
     // ==========================================
     // پایگاه داده جامع Dexie IndexedDB (کاملاً خام - Zero Seed)
