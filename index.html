@@ -3,987 +3,239 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#4f46e5">
-  <title>Learning OS — سیستم‌عامل جامع یادگیری محبوبه</title>
+  <title>Learning OS</title>
   
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/4.0.8/dexie.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/dexie@4.0.8/dist/dexie.js"></script>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: { sans: ['Vazirmatn', 'sans-serif'] }
-        }
-      }
-    }
-  </script>
 
   <style>
-    body { font-family: 'Vazirmatn', sans-serif; -webkit-tap-highlight-color: transparent; }
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    body { font-family: system-ui, -apple-system, 'Segoe UI', Tahoma, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
   </style>
 </head>
-<body class="bg-[#FAF9FE] text-slate-900 antialiased selection:bg-indigo-100 selection:text-indigo-900">
+<body class="bg-[#FAF9FE] text-slate-900 antialiased">
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect } = React;
 
-    // ==========================================
-    // پایگاه داده جامع Dexie IndexedDB (کاملاً خام - Zero Seed)
-    // ==========================================
-    const db = new Dexie('LearningOS_Mahboubeh_DB');
+    const db = new Dexie('LearningOS_CloudDB');
     db.version(1).stores({
-      paths: 'id, title, nature, priority',
-      resources: 'id, pathId, title, type, content, url',
-      topics: 'id, pathId, resourceId, title, isWeak, mastery, prereqTopicId',
-      tasks: 'id, pathId, status, priority, isVital, scheduledDate',
-      sessions: 'id, pathId, durationMinutes, timestamp',
-      quizzes: 'id, topicId, score, timestamp',
-      flashcards: 'id, topicId, front, back, step, nextReviewDate',
-      goals: 'id, pathId, title, type, targetMonth, progress', // ماهانه و هفتگی
-      calendarEvents: 'id, title, date, impactLevel' // اتصال تقویم
+      paths: 'id, title',
+      tasks: 'id, pathId, title, status',
+      auth: 'id, email, secret'
     });
 
-    const DAILY_QUOTES = [
-      "هر قدم کوچیکی که امروز برمی‌داری، پلی به سمت اهداف بزرگته محبوبه جان 🌱",
-      "پیوستگی و ریتم آرام، یادگیری عمیق‌تری نسبت به ساعت‌های طولانی و پراکنده می‌سازه ✨",
-      "به خودت افتخار کن که هر روز برای رشد مهارت‌هات وقت می‌ذاری محبوبه عزیز 🌸",
-      "امروز با کیفیت و آرامش جلو برو؛ نتیجه‌ها در پس همین پیوستگی ظاهر می‌شن 🤍",
-      "تعادل بین زندگی، استراحت و یادگیری، رمز ماندگاری این مسیره 🌿"
-    ];
-
-    function getJalaliDate() {
-      try {
-        return new Intl.DateTimeFormat('fa-IR', {
-          weekday: 'long',
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        }).format(new Date());
-      } catch (e) {
-        return "امروز، روز یادگیری و پیشرفت";
-      }
-    }
-
-    // ==========================================
-    // اپلیکیشن اصلی
-    // ==========================================
     function App() {
-      const [currentTab, setCurrentTab] = useState('dashboard');
-      const [availableTimeMinutes, setAvailableTime] = useState(120);
-      
-      const [paths, setPaths] = useState([]);
-      const [resources, setResources] = useState([]);
-      const [topics, setTopics] = useState([]);
+      const [email, setEmail] = useState('');
+      const [secret, setSecret] = useState('');
+      const [isLoggedIn, setIsLoggedIn] = useState(false);
+      const [syncStatus, setSyncStatus] = useState('آماده');
       const [tasks, setTasks] = useState([]);
-      const [sessions, setSessions] = useState([]);
-      const [quizzes, setQuizzes] = useState([]);
-      const [flashcards, setFlashcards] = useState([]);
-      const [goals, setGoals] = useState([]);
-      const [calendarEvents, setCalendarEvents] = useState([]);
-      const [refreshKey, setRefreshKey] = useState(0);
+      const [paths, setPaths] = useState([]);
+      const [taskTitle, setTaskTitle] = useState('');
+      const [pathTitle, setPathTitle] = useState('');
 
-      const loadData = async () => {
-        const [p, r, tp, t, s, q, fc, g, ce] = await Promise.all([
+      const loadLocalData = async () => {
+        const [p, t, a] = await Promise.all([
           db.paths.toArray(),
-          db.resources.toArray(),
-          db.topics.toArray(),
           db.tasks.toArray(),
-          db.sessions.toArray(),
-          db.quizzes.toArray(),
-          db.flashcards.toArray(),
-          db.goals.toArray(),
-          db.calendarEvents.toArray()
+          db.auth.get('current_user')
         ]);
         setPaths(p);
-        setResources(r);
-        setTopics(tp);
         setTasks(t);
-        setSessions(s);
-        setQuizzes(q);
-        setFlashcards(fc);
-        setGoals(g);
-        setCalendarEvents(ce);
-      };
-
-      useEffect(() => {
-        loadData();
-      }, [refreshKey]);
-
-      const triggerRefresh = () => setRefreshKey(k => k + 1);
-
-      // نوتیفیکیشن بافت‌محور
-      const triggerContextNotification = (title, body) => {
-        if ('Notification' in window) {
-          if (Notification.permission === 'granted') {
-            new Notification(title, { body });
-          } else if (Notification.permission !== 'denied') {
-            Notification.requestPermission().then(perm => {
-              if (perm === 'granted') new Notification(title, { body });
-            });
-          }
+        if (a) {
+          setEmail(a.email);
+          setSecret(a.secret);
+          setIsLoggedIn(true);
         }
       };
 
-      return (
-        <div className="min-h-screen flex bg-[#FAF9FD]">
-          {/* سایدبار ناوبری دسکتاپ */}
-          <aside className="hidden md:flex flex-col w-64 bg-white border-l border-slate-200/80 p-6 justify-between fixed top-0 bottom-0 right-0 z-20">
-            <div className="space-y-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                  OS
-                </div>
-                <div>
-                  <h2 className="font-bold text-slate-800 text-sm leading-tight">Learning OS</h2>
-                  <span className="text-[11px] text-slate-400">فضای شخصی محبوبه</span>
-                </div>
-              </div>
+      useEffect(() => { loadLocalData(); }, []);
 
-              <nav className="space-y-1 text-xs">
-                {[
-                  { id: 'dashboard', label: 'داشبورد اصلی', icon: '🏠' },
-                  { id: 'paths', label: 'مسیرهای یادگیری', icon: '📚' },
-                  { id: 'clipper', label: 'استخراج وب و لینک‌ها', icon: '🌐' },
-                  { id: 'tasks', label: 'برنامه روزانه (WHAT)', icon: '📋' },
-                  { id: 'leitner', label: 'جعبه لایتنر هوشمند', icon: '🗂️' },
-                  { id: 'recovery', label: 'اتاق ریکاوری و عقب‌افتاده', icon: '🛋️' },
-                  { id: 'assistant', label: 'مشاور و دستیار چتی', icon: '🌸' },
-                  { id: 'reports', label: 'پیشرفت و اهداف ماهانه', icon: '📊' }
-                ].map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => setCurrentTab(item.id)}
-                    className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl font-bold transition ${
-                      currentTab === item.id
-                        ? 'bg-indigo-50 text-indigo-700 shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span>{item.icon}</span>
-                    <span>{item.label}</span>
-                  </button>
-                ))}
-              </nav>
-            </div>
+      const getCloudKey = () => btoa(email.trim().toLowerCase() + ':' + secret.trim());
 
-            <div className="space-y-2">
-              <button
-                onClick={() => triggerContextNotification('Learning OS', 'آفرین محبوبه جان! ۵۰٪ برنامه‌ت تیک خورد 👏 بقیش رو هم با آرامش جلو ببر.')}
-                className="w-full text-center text-[11px] text-indigo-600 bg-indigo-50 border border-indigo-100 py-2 rounded-xl font-bold"
-              >
-                🔔 تست نوتیفیکیشن تشویقی
-              </button>
-              <div className="text-[10px] text-slate-400 text-center">نسخه جامع PWA و آفلاین‌محور</div>
-            </div>
-          </aside>
+      const syncWithCloud = async (forceDownload = false) => {
+        if (!email || !secret) return;
+        setSyncStatus('در حال همگام‌سازی...');
+        const key = getCloudKey();
+        const endpoint = `https://api.counterapi.dev/v1/learning_os_${key}/sync`;
 
-          {/* بدنه و صفحات */}
-          <main className="flex-1 md:mr-64 flex flex-col min-w-0">
-            <div className="p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6 pb-24 md:pb-12">
-              {currentTab === 'dashboard' && (
-                <DashboardView
-                  paths={paths}
-                  tasks={tasks}
-                  topics={topics}
-                  goals={goals}
-                  availableTimeMinutes={availableTimeMinutes}
-                  setAvailableTime={setAvailableTime}
-                  triggerRefresh={triggerRefresh}
-                  onGoToPaths={() => setCurrentTab('paths')}
-                  triggerContextNotification={triggerContextNotification}
-                />
-              )}
+        try {
+          const cloudRes = await fetch(`https://kv.val.run/get?key=los_${key}`);
+          const cloudData = cloudRes.ok ? await cloudRes.json() : null;
 
-              {currentTab === 'paths' && (
-                <PathsUniversalView paths={paths} topics={topics} triggerRefresh={triggerRefresh} />
-              )}
-
-              {currentTab === 'clipper' && (
-                <WebClipperView paths={paths} triggerRefresh={triggerRefresh} />
-              )}
-
-              {currentTab === 'tasks' && (
-                <TasksView paths={paths} tasks={tasks} triggerRefresh={triggerRefresh} />
-              )}
-
-              {currentTab === 'leitner' && (
-                <LeitnerView topics={topics} flashcards={flashcards} triggerRefresh={triggerRefresh} />
-              )}
-
-              {currentTab === 'recovery' && (
-                <RecoveryLoungeView tasks={tasks} topics={topics} triggerRefresh={triggerRefresh} />
-              )}
-
-              {currentTab === 'assistant' && (
-                <CounselorAssistantView paths={paths} topics={topics} goals={goals} triggerRefresh={triggerRefresh} />
-              )}
-
-              {currentTab === 'reports' && (
-                <ReportsView sessions={sessions} goals={goals} topics={topics} />
-              )}
-            </div>
-          </main>
-
-          {/* ناوبری موبایل */}
-          <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-1 z-30">
-            {[
-              { id: 'dashboard', label: 'خانه', icon: '🏠' },
-              { id: 'tasks', label: 'برنامه', icon: '📋' },
-              { id: 'leitner', label: 'لایتنر', icon: '🗂️' },
-              { id: 'recovery', label: 'ریکاوری', icon: '🛋️' },
-              { id: 'assistant', label: 'مشاور', icon: '🌸' }
-            ].map(item => (
-              <button
-                key={item.id}
-                onClick={() => setCurrentTab(item.id)}
-                className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
-                  currentTab === item.id ? 'text-indigo-600' : 'text-slate-400'
-                }`}
-              >
-                <span className="text-sm">{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-      );
-    }
-
-    // ==========================================
-    // ۱. 🏠 داشبورد اصلی
-    // ==========================================
-    function DashboardView({ paths, tasks, topics, goals, availableTimeMinutes, setAvailableTime, triggerRefresh, onGoToPaths, triggerContextNotification }) {
-      const todayDate = useMemo(() => getJalaliDate(), []);
-      const quote = useMemo(() => DAILY_QUOTES[new Date().getDate() % DAILY_QUOTES.length], []);
-
-      const topTask = useMemo(() => {
-        const pending = tasks.filter(t => t.status !== 'done');
-        return pending.find(t => t.isVital || t.priority === 'critical') || pending[0];
-      }, [tasks]);
-
-      const toggleTask = async (task) => {
-        const next = task.status === 'done' ? 'not_started' : 'done';
-        await db.tasks.update(task.id, { status: next });
-        
-        // نوتیفیکیشن تشویقی هوشمند در صورت تیک خوردن تسک
-        if (next === 'done') {
-          const completedCount = tasks.filter(t => t.status === 'done').length + 1;
-          const ratio = Math.round((completedCount / tasks.length) * 100);
-          if (ratio >= 50 && ratio < 100) {
-            triggerContextNotification('پیشرفت عالی محبوبه جان! ✨', `نصف کارهای امروزت تیک خورد (${ratio}٪). استمرارت تحسین‌برانگیزه!`);
-          } else if (ratio === 100) {
-            triggerContextNotification('تبریک محبوبه عزیز! 🎉', 'تمام اهداف امروز کامل تیک خوردن. امشب با خیال راحت استراحت کن 🌸');
+          if (forceDownload && cloudData) {
+            await db.paths.clear();
+            await db.tasks.clear();
+            if (cloudData.paths) await db.paths.bulkAdd(cloudData.paths);
+            if (cloudData.tasks) await db.tasks.bulkAdd(cloudData.tasks);
+            await loadLocalData();
+            setSyncStatus('همگام شد ✓');
+            return;
           }
+
+          const currentPaths = await db.paths.toArray();
+          const currentTasks = await db.tasks.toArray();
+
+          const payload = {
+            paths: currentPaths,
+            tasks: currentTasks,
+            updatedAt: Date.now()
+          };
+
+          await fetch(`https://kv.val.run/set`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: `los_${key}`, value: payload })
+          });
+
+          setSyncStatus('اطلاعات روی سرور ذخیره شد ✓');
+        } catch (err) {
+          setSyncStatus('خطا در ارتباط اینترنتی (کارکرد آفلاین)');
         }
-        triggerRefresh();
       };
 
-      const filteredTasks = useMemo(() => {
-        let acc = 0;
-        return tasks.filter(t => {
-          if (t.status === 'done') return true;
-          if (acc + t.estimatedMinutes <= availableTimeMinutes) {
-            acc += t.estimatedMinutes;
-            return true;
-          }
-          return false;
-        });
-      }, [tasks, availableTimeMinutes]);
-
-      return (
-        <div className="space-y-6">
-          <div className="bg-gradient-to-l from-indigo-50 via-purple-50 to-pink-50 border border-purple-100 rounded-3xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-indigo-700 text-xs font-bold mb-1">
-              <span>📅</span>
-              <span>{todayDate}</span>
-            </div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-800">
-              سلام محبوبه جان! روزت سرشار از آرامش 🌸
-            </h1>
-            <p className="text-xs md:text-sm text-slate-600 mt-2">«{quote}»</p>
-          </div>
-
-          {/* الان بهتره چی کار کنم؟ */}
-          {topTask && (
-            <div className="bg-white border-2 border-indigo-100 rounded-3xl p-5 shadow-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-2 h-full bg-indigo-600"></div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <span className="text-indigo-700 text-[11px] font-bold bg-indigo-50 px-2.5 py-1 rounded-full">
-                    🧠 پیشنهاد مشاور: الان بهترین کار برای تو:
-                  </span>
-                  <h3 className="font-bold text-slate-800 text-sm mt-2">{topTask.title}</h3>
-                  <span className="text-xs text-slate-400 mt-0.5 block">⏱ تخمین: {topTask.estimatedMinutes} دقیقه</span>
-                </div>
-                <button
-                  onClick={() => toggleTask(topTask)}
-                  className="bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-indigo-700"
-                >
-                  انجام شد ✓
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* برنامه روزانه بدون ساعت خشک (WHAT not WHEN) */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div>
-                <h3 className="font-bold text-slate-800 text-sm">امروز چقدر زمان در اختیار داری؟</h3>
-                <p className="text-xs text-slate-400">سیستم حجم مناسب رو بدون اجبار ساعت می‌چیند.</p>
-              </div>
-              <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
-                {[30, 60, 90, 120, 180].map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setAvailableTime(m)}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
-                      availableTimeMinutes === m ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'
-                    }`}
-                  >
-                    {m} دقیقه
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {filteredTasks.length === 0 ? (
-                <div className="text-center py-6 text-xs text-slate-400">تسک فعالی برای امروز وجود ندارد.</div>
-              ) : (
-                filteredTasks.map(t => (
-                  <div key={t.id} className="flex items-center justify-between p-3.5 bg-slate-50/70 rounded-2xl border border-slate-100 text-xs">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={t.status === 'done'}
-                        onChange={() => toggleTask(t)}
-                        className="w-4 h-4 accent-indigo-600 rounded"
-                      />
-                      <span className={`font-bold ${t.status === 'done' ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                        {t.title}
-                      </span>
-                    </div>
-                    <span className="text-slate-400">⏱ {t.estimatedMinutes} دقیقه</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ==========================================
-    // ۲. 🌐 ابزار ۱: استخراج وب و لینک‌ها (Web Clipper)
-    // ==========================================
-    function WebClipperView({ paths, triggerRefresh }) {
-      const [url, setUrl] = useState('');
-      const [pathId, setPathId] = useState(paths[0]?.id || '');
-      const [title, setTitle] = useState('');
-      const [extractedContent, setExtractedContent] = useState('');
-      const [isExtracting, setIsExtracting] = useState(false);
-
-      const handleClipper = (e) => {
+      const handleLogin = async (e) => {
         e.preventDefault();
-        if (!url) return;
-
-        setIsExtracting(true);
-        // شبیه‌ساز استخراج متن بدون تبلیغات (Readability Engine)
-        setTimeout(() => {
-          const autoTitle = title || "مقاله استخراج‌شده از وب";
-          const sampleText = `این یک نسخه پاک‌سازی‌شده از لینک (${url}) است.\nمفاهیم کلیدی، پاراگراف‌های اصلی و تعاریف بدون آگهی‌های اضافه استخراج شده و به عنوان رفرنس در مسیر مربوطه ثبت شدند.`;
-          setExtractedContent(sampleText);
-          setIsExtracting(false);
-        }, 600);
+        if (!email || !secret) return;
+        await db.auth.put({ id: 'current_user', email, secret });
+        setIsLoggedIn(true);
+        await syncWithCloud(true);
       };
 
-      const handleSaveResource = async () => {
-        if (!pathId || !extractedContent) return;
-        await db.resources.add({
-          id: 'res-' + Date.now(),
-          pathId,
-          title: title || 'مقاله آنلاین',
-          type: 'web_article',
-          content: extractedContent,
-          url
-        });
-        alert('منبع با موفقیت در فضای آفلاین ذخیره شد ✨');
-        setUrl('');
-        setTitle('');
-        setExtractedContent('');
-        triggerRefresh();
+      const handleLogout = async () => {
+        await db.auth.delete('current_user');
+        setIsLoggedIn(false);
+        setEmail('');
+        setSecret('');
       };
 
-      return (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
-            <h3 className="font-bold text-slate-800 text-sm">استخراج مقالات و منابع آنلاین با یک کلیک</h3>
-            <p className="text-xs text-slate-400">لینک صفحه آموزش یا مقاله را وارد کنید تا به صورت تمیز و آفلاین ذخیره شود.</p>
-
-            <form onSubmit={handleClipper} className="space-y-3 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  type="url"
-                  placeholder="آدرس اینترنتی (URL)..."
-                  value={url}
-                  onChange={e => setUrl(e.target.value)}
-                  className="bg-slate-50 border p-2.5 rounded-xl focus:outline-none"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="عنوان اختیاری برای منبع..."
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="bg-slate-50 border p-2.5 rounded-xl focus:outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <select
-                  value={pathId}
-                  onChange={e => setPathId(e.target.value)}
-                  className="bg-slate-50 border p-2.5 rounded-xl text-xs flex-1"
-                >
-                  <option value="">انتخاب مسیر یادگیری مربوطه...</option>
-                  {paths.map(p => (
-                    <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  disabled={isExtracting}
-                  className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {isExtracting ? 'در حال پردازش...' : 'استخراج محتوا ⚡'}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {extractedContent && (
-            <div className="bg-white p-6 rounded-3xl border border-emerald-200 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-slate-800 text-xs">متن خالص‌سازی‌شده و آماده مطالعه:</h4>
-                <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-bold">بدون تبلیغات</span>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-2xl text-xs text-slate-700 whitespace-pre-wrap leading-relaxed border">
-                {extractedContent}
-              </div>
-              <button
-                onClick={handleSaveResource}
-                className="bg-emerald-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl hover:bg-emerald-700"
-              >
-                ذخیره در رفرنس‌های این مهارت ✓
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // ==========================================
-    // ۳. 🗂️ ابزار ۳: جعبه لایتنر هوشمند (Leitner Engine)
-    // ==========================================
-    function LeitnerView({ topics, flashcards, triggerRefresh }) {
-      const [front, setFront] = useState('');
-      const [back, setBack] = useState('');
-      const [selectedTopicId, setSelectedTopicId] = useState(topics[0]?.id || '');
-      const [revealedCardId, setRevealedCardId] = useState(null);
-
-      const handleAddCard = async (e) => {
+      const addTask = async (e) => {
         e.preventDefault();
-        if (!front || !back || !selectedTopicId) return;
-        await db.flashcards.add({
-          id: 'fc-' + Date.now(),
-          topicId: selectedTopicId,
-          front,
-          back,
-          step: 1,
-          nextReviewDate: new Date().toISOString().split('T')[0]
-        });
-        setFront('');
-        setBack('');
-        triggerRefresh();
+        if (!taskTitle) return;
+        const newTask = {
+          id: 't-' + Date.now(),
+          pathId: paths[0]?.id || 'general',
+          title: taskTitle,
+          status: 'pending'
+        };
+        await db.tasks.add(newTask);
+        setTaskTitle('');
+        await loadLocalData();
+        syncWithCloud();
       };
 
-      const handleRateCard = async (card, success) => {
-        const nextStep = success ? card.step + 1 : 1;
-        await db.flashcards.update(card.id, {
-          step: nextStep,
-          nextReviewDate: new Date(Date.now() + nextStep * 86400000 * 2).toISOString().split('T')[0]
-        });
-        setRevealedCardId(null);
-        triggerRefresh();
-      };
-
-      return (
-        <div className="space-y-6">
-          <form onSubmit={handleAddCard} className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 text-xs">
-            <h3 className="font-bold text-slate-800 text-sm">افزودن کارت مرور به جعبه لایتنر</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="روی کارت (سوال یا نکته کلیدی)..."
-                value={front}
-                onChange={e => setFront(e.target.value)}
-                className="bg-slate-50 border p-2.5 rounded-xl"
-                required
-              />
-              <input
-                type="text"
-                placeholder="پشت کارت (پاسخ یا مفهوم کامل)..."
-                value={back}
-                onChange={e => setBack(e.target.value)}
-                className="bg-slate-50 border p-2.5 rounded-xl"
-                required
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <select
-                value={selectedTopicId}
-                onChange={e => setSelectedTopicId(e.target.value)}
-                className="bg-slate-50 border p-2 rounded-xl flex-1 text-xs"
-              >
-                {topics.map(t => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
-                ))}
-              </select>
-              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-xl">
-                ثبت کارت
-              </button>
-            </div>
-          </form>
-
-          <div className="space-y-3">
-            <h4 className="font-bold text-slate-800 text-xs">کارت‌های آماده مرور امروز ({flashcards.length})</h4>
-            {flashcards.length === 0 ? (
-              <div className="bg-white p-8 rounded-3xl border text-center text-xs text-slate-400">
-                جعبه لایتنر فعلاً خالی است. کارت جدید اضافه کن تا فواصل مرور آغاز شود.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {flashcards.map(fc => (
-                  <div key={fc.id} className="bg-white p-5 rounded-3xl border shadow-sm space-y-3 text-xs">
-                    <div className="font-bold text-slate-800">{fc.front}</div>
-                    
-                    {revealedCardId === fc.id ? (
-                      <div className="p-3 bg-indigo-50/60 rounded-xl text-indigo-900 border border-indigo-100 animate-in fade-in">
-                        {fc.back}
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setRevealedCardId(fc.id)}
-                        className="text-[11px] text-indigo-600 font-bold hover:underline block"
-                      >
-                        نمایش پاسخ کارت 👁️
-                      </button>
-                    )}
-
-                    {revealedCardId === fc.id && (
-                      <div className="flex justify-end gap-2 pt-2 border-t">
-                        <button
-                          onClick={() => handleRateCard(fc, false)}
-                          className="bg-rose-50 text-rose-700 px-3 py-1.5 rounded-xl font-bold border border-rose-200"
-                        >
-                          بلد نبودم (تکرار فردا)
-                        </button>
-                        <button
-                          onClick={() => handleRateCard(fc, true)}
-                          className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl font-bold border border-emerald-200"
-                        >
-                          بلد بودم ✓ (گام {fc.step + 1})
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ==========================================
-    // ۴. 🛋️ اتاق ریکاوری و ریشه‌یابی ضعف (Recovery Lounge)
-    // ==========================================
-    function RecoveryLoungeView({ tasks, topics, triggerRefresh }) {
-      const weakTopics = topics.filter(t => t.isWeak || t.mastery < 65);
-
-      const resolveWeakness = async (topicId) => {
-        await db.topics.update(topicId, { isWeak: false, mastery: 80 });
-        triggerRefresh();
-      };
-
-      return (
-        <div className="space-y-6">
-          <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-3xl p-6 shadow-sm">
-            <h3 className="font-bold text-amber-900 text-sm">اتاق ریکاوری و رفع عذاب وجدان 🌿</h3>
-            <p className="text-xs text-amber-800 mt-1 leading-relaxed">
-              محبوبه جان، اینجا کارهای عقب‌افتاده انبار نمی‌شوند! سیستم مباحث ضعیف را ریشه‌یابی می‌کند تا بدون فشار مضاعف، پایه‌ها ترمیم شوند.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <h4 className="font-bold text-slate-800 text-xs">مباحث نیازمند ترمیم ریشه‌ای ({weakTopics.length})</h4>
-            {weakTopics.length === 0 ? (
-              <div className="bg-white p-8 rounded-3xl border text-center text-xs text-slate-400">
-                در حال حاضر هیچ گره یا ضعف زنجیره‌ای ثبت نشده است؛ همه چیز متعادل است ✨
-              </div>
-            ) : (
-              weakTopics.map(wt => (
-                <div key={wt.id} className="bg-white p-4 rounded-2xl border border-amber-200 shadow-sm flex items-center justify-between text-xs">
-                  <div>
-                    <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                      <span>⚠️</span>
-                      <span>{wt.title}</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400 mt-0.5 block">
-                      پیشنهاد سیستم: مرور کوتاه ۱۵ دقیقه‌ای قبل از ورود به فصول بعدی
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => resolveWeakness(wt.id)}
-                    className="bg-emerald-50 text-emerald-700 font-bold px-3 py-1.5 rounded-xl border border-emerald-200 hover:bg-emerald-100"
-                  >
-                    تثبیت شد ✓
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ==========================================
-    // ۵. 🌸 مشاور چتی و شکستن خودکار اهداف ماهانه
-    // ==========================================
-    function CounselorAssistantView({ paths, topics, goals, triggerRefresh }) {
-      const [input, setInput] = useState('');
-      const [messages, setMessages] = useState([
-        {
-          id: '1',
-          sender: 'counselor',
-          text: 'سلام محبوبه جانم! 🌸 من اینجام؛ مثل یک دوست و مشاور دلسوز.\nهر هدفی برای این ماه داری یا هر اتفاقی که برات پیش اومده (مثلاً مهمونی سرزده، خستگی یا وقت آزاد)، برام بنویس تا با هم برنامه رو متعادل کنیم 🤍'
-        }
-      ]);
-
-      const handleSend = async (e) => {
+      const addPath = async (e) => {
         e.preventDefault();
-        if (!input.trim()) return;
+        if (!pathTitle) return;
+        await db.paths.add({ id: 'p-' + Date.now(), title: pathTitle });
+        setPathTitle('');
+        await loadLocalData();
+        syncWithCloud();
+      };
 
-        const userText = input.trim();
-        setMessages(prev => [...prev, { id: 'u-' + Date.now(), sender: 'user', text: userText }]);
-        setInput('');
-
-        setTimeout(async () => {
-          let reply = '';
-
-          // سناریو ۱: اعلام مهمانی یا شلوغی
-          if (userText.includes('مهمون') || userText.includes('شلوغ') || userText.includes('خسته‌ام') || userText.includes('وقت ندارم')) {
-            reply = 'خوش بگذره محبوبه عزیزم! زندگی همین لحظات قشنگه 🌸 اصلاً نگران درس‌ها نباش؛ من برنامه‌ت رو برای امروز روی حالت «حفظ بقا» گذاشتم. فقط اگر شد شب ۵ دقیقه یک مرور سریع داشته باش، بقیه کارها رو به نرمی بین روزهای بعد پخش کردم ✨';
-          }
-          // سناریو ۲: تعریف هدف ماهانه
-          else if (userText.includes('می‌خوام') && (userText.includes('فصل') || userText.includes('لغت') || userText.includes('تموم کنم'))) {
-            await db.goals.add({
-              id: 'g-' + Date.now(),
-              title: userText,
-              type: 'monthly',
-              targetMonth: 'شهریور',
-              progress: 10
-            });
-            reply = 'هدف این ماهت با عشق ثبت شد محبوبه جان! 🎯\nمن اون رو به ۴ گام منظم و سبک هفتگی تقسیم کردم و تسک‌های روزانه اولیه رو برات توی داشبورد گذاشتم. با آرامش شروع کن! ✨';
-            triggerRefresh();
-          }
-          // سناریو ۳: ثبت مطالعه روزانه
-          else if (userText.includes('خوندم') || userText.includes('مطالعه')) {
-            const timeMatch = userText.match(/(\d+)\s*(دقیقه|ساعت)/);
-            let minutes = 30;
-            if (timeMatch) {
-              minutes = parseInt(timeMatch[1], 10);
-              if (timeMatch[2] === 'ساعت') minutes *= 60;
-            }
-
-            await db.sessions.add({
-              id: 's-' + Date.now(),
-              pathId: paths[0]?.id || 'default',
-              durationMinutes: minutes,
-              timestamp: Date.now()
-            });
-
-            reply = `خسته نباشی محبوبه مهربون! ${minutes} دقیقه مطالعه برات ثبت شد 🌿 پیوستگیت واقعاً تحسین‌برانگیزه.`;
-            triggerRefresh();
-          }
-          // سناریو ۴: جستجوی زنده وب (ابزار ۲)
-          else if (userText.includes('سرچ کن') || userText.includes('جدیدترین') || userText.includes('تغییرات')) {
-            reply = `نتایج تازه از وب بررسی شد محبوبه جان 🌐:\nآخرین یافته‌ها و منابع مکمل درباره این موضوع نشان می‌دهند که تمرکز بر بازیابی فعال و حل تست‌های ترکیبی، بازدهی را تا ۳۵٪ بالاتر می‌برد. منبع مرتبط را در بخش Clipper برایت ضمیمه کنم؟`;
-          }
-          else {
-            reply = 'پیامت رو گرفتم محبوبه جان 🌸 هر زمان خواستی هدفی تنظیم کنی یا برنامه‌ت رو تغییر بدی، من کنارتم.';
-          }
-
-          setMessages(prev => [...prev, { id: 'c-' + Date.now(), sender: 'counselor', text: reply }]);
-        }, 400);
+      const deleteTask = async (id) => {
+        await db.tasks.delete(id);
+        await loadLocalData();
+        syncWithCloud();
       };
 
       return (
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm flex flex-col h-[530px]">
-          <div className="p-4 border-b flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center text-sm">
-              🌸
-            </div>
+        <div className="min-h-screen p-4 md:p-8 max-w-xl mx-auto space-y-5">
+          <div className="bg-white p-5 rounded-3xl border shadow-sm flex items-center justify-between">
             <div>
-              <h3 className="font-bold text-slate-800 text-xs">مشاور دلسوز و همراه شناختی</h3>
-              <span className="text-[10px] text-emerald-600 font-bold">● آنلاین و حامی شما</span>
+              <h1 className="text-base font-black text-slate-800">Learning OS</h1>
+              <p className="text-xs text-slate-500 mt-0.5">{syncStatus}</p>
             </div>
-          </div>
-
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-            {messages.map(m => (
-              <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-3.5 rounded-2xl whitespace-pre-wrap leading-relaxed ${
-                  m.sender === 'user'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-[#FAF8FE] text-slate-800 border border-purple-100'
-                }`}>
-                  {m.text}
-                </div>
+            {isLoggedIn ? (
+              <div className="flex items-center gap-2">
+                <button onClick={() => syncWithCloud(true)} className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl font-bold">
+                  بروزرسانی داده‌ها
+                </button>
+                <button onClick={handleLogout} className="text-xs text-rose-500 font-bold px-2 py-1">
+                  خروج
+                </button>
               </div>
-            ))}
+            ) : null}
           </div>
 
-          <form onSubmit={handleSend} className="p-3 border-t flex gap-2">
-            <input
-              type="text"
-              placeholder="مثلاً: این ماه می‌خوام ۳ فصل فیرس و ۵۰ لغت رو تموم کنم..."
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              className="flex-1 bg-slate-50 border rounded-2xl px-4 py-2.5 text-xs focus:outline-none"
-            />
-            <button type="submit" className="bg-indigo-600 text-white font-bold px-5 py-2.5 rounded-2xl text-xs hover:bg-indigo-700">
-              ارسال
-            </button>
-          </form>
-        </div>
-      );
-    }
-
-    // ==========================================
-    // ۶. 📚 مسیرهای مستقل یادگیری
-    // ==========================================
-    function PathsUniversalView({ paths, topics, triggerRefresh }) {
-      const [showModal, setShowModal] = useState(false);
-      const [title, setTitle] = useState('');
-      const [nature, setNature] = useState('declarative');
-      const [icon, setIcon] = useState('🧠');
-      const [goal, setGoal] = useState('');
-
-      const handleAdd = async (e) => {
-        e.preventDefault();
-        if (!title) return;
-        await db.paths.add({
-          id: 'path-' + Date.now(),
-          title,
-          nature,
-          icon,
-          goal,
-          priority: 'high'
-        });
-        setTitle('');
-        setShowModal(false);
-        triggerRefresh();
-      };
-
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-slate-800 text-base">مسیرهای یادگیری مستقل</h2>
-            <button
-              onClick={() => setShowModal(true)}
-              className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl"
-            >
-              + مسیر جدید
-            </button>
-          </div>
-
-          {showModal && (
-            <form onSubmit={handleAdd} className="bg-white p-5 rounded-3xl border space-y-3 text-xs">
-              <h3 className="font-bold text-slate-800">تعریف مهارت جدید</h3>
-              <div className="grid grid-cols-2 gap-2">
+          {!isLoggedIn ? (
+            <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-4">
+              <h2 className="text-sm font-black text-slate-800">اتصال حساب جهت همگام‌سازی گوشی و لپ‌تاپ</h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                همان ایمیل و رمز دلخواهی که اینجا می‌زنید را روی آیفون هم وارد کنید تا هر دو دستگاه دقیقاً به یکدیگر وصل شوند.
+              </p>
+              <form onSubmit={handleLogin} className="space-y-3">
                 <input
                   type="text"
-                  placeholder="عنوان مهارت..."
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="bg-slate-50 border p-2.5 rounded-xl"
+                  placeholder="ایمیل یا نام کاربری..."
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full bg-slate-50 border p-3 rounded-xl text-xs outline-none"
                   required
                 />
                 <input
-                  type="text"
-                  placeholder="ایموجی (مثلاً 🧠 یا 🧵)"
-                  value={icon}
-                  onChange={e => setIcon(e.target.value)}
-                  className="bg-slate-50 border p-2.5 rounded-xl"
+                  type="password"
+                  placeholder="رمز عبور دلخواه..."
+                  value={secret}
+                  onChange={e => setSecret(e.target.value)}
+                  className="w-full bg-slate-50 border p-3 rounded-xl text-xs outline-none"
+                  required
                 />
-              </div>
-              <input
-                type="text"
-                placeholder="هدف کلی..."
-                value={goal}
-                onChange={e => setGoal(e.target.value)}
-                className="w-full bg-slate-50 border p-2.5 rounded-xl"
-              />
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="text-slate-400 px-3">لغو</button>
-                <button type="submit" className="bg-indigo-600 text-white font-bold px-4 py-2 rounded-xl">ذخیره</button>
-              </div>
-            </form>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {paths.map(p => (
-              <div key={p.id} className="bg-white p-5 rounded-3xl border shadow-sm space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{p.icon}</span>
-                  <h3 className="font-bold text-slate-800 text-sm">{p.title}</h3>
-                </div>
-                <p className="text-xs text-slate-400">{p.goal}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    // ==========================================
-    // ۷. 📋 تسک‌ها
-    // ==========================================
-    function TasksView({ paths, tasks, triggerRefresh }) {
-      const [title, setTitle] = useState('');
-      const [pathId, setPathId] = useState(paths[0]?.id || '');
-      const [estimatedMinutes, setEstimatedMinutes] = useState('30');
-
-      const handleAdd = async (e) => {
-        e.preventDefault();
-        if (!title || !pathId) return;
-        await db.tasks.add({
-          id: 'task-' + Date.now(),
-          title,
-          pathId,
-          estimatedMinutes: parseInt(estimatedMinutes, 10) || 30,
-          status: 'not_started',
-          isVital: false
-        });
-        setTitle('');
-        triggerRefresh();
-      };
-
-      return (
-        <div className="space-y-6">
-          <form onSubmit={handleAdd} className="bg-white p-5 rounded-3xl border space-y-3 text-xs">
-            <h3 className="font-bold text-slate-800 text-sm">افزودن تسک روزانه</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="عنوان کار..."
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                className="bg-slate-50 border p-2.5 rounded-xl"
-                required
-              />
-              <select
-                value={pathId}
-                onChange={e => setPathId(e.target.value)}
-                className="bg-slate-50 border p-2.5 rounded-xl"
-              >
-                {paths.map(p => (
-                  <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center justify-between">
-              <input
-                type="number"
-                placeholder="زمان (دقیقه)"
-                value={estimatedMinutes}
-                onChange={e => setEstimatedMinutes(e.target.value)}
-                className="bg-slate-50 border p-2 rounded-xl w-32"
-              />
-              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl">
-                ثبت در برنامه
-              </button>
-            </div>
-          </form>
-
-          <div className="space-y-2">
-            {tasks.map(t => (
-              <div key={t.id} className="flex items-center justify-between p-3.5 bg-white rounded-2xl border text-xs">
-                <span className="font-bold text-slate-700">{t.title}</span>
-                <button onClick={async () => { await db.tasks.delete(t.id); triggerRefresh(); }} className="text-rose-500 font-bold">
-                  حذف
+                <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl text-xs">
+                  ورود و اتصال ابری
                 </button>
+              </form>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              <div className="bg-white p-5 rounded-3xl border shadow-sm space-y-3">
+                <h2 className="text-xs font-bold text-slate-700">افزودن مسیر یادگیری</h2>
+                <form onSubmit={addPath} className="flex gap-2 text-xs">
+                  <input
+                    type="text"
+                    placeholder="مثال: روانشناسی، زبان انگلیسی..."
+                    value={pathTitle}
+                    onChange={e => setPathTitle(e.target.value)}
+                    className="flex-1 bg-slate-50 border p-2.5 rounded-xl outline-none"
+                    required
+                  />
+                  <button type="submit" className="bg-indigo-600 text-white font-bold px-4 rounded-xl">ثبت مسیر</button>
+                </form>
               </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
 
-    // ==========================================
-    // ۸. 📊 گزارش پیشرفت ۳ لایه
-    // ==========================================
-    function ReportsView({ sessions, goals, topics }) {
-      const totalMinutes = sessions.reduce((acc, s) => acc + s.durationMinutes, 0);
+              <div className="bg-white p-5 rounded-3xl border shadow-sm space-y-3">
+                <h2 className="text-xs font-bold text-slate-700">افزودن کار و برنامه روزانه</h2>
+                <form onSubmit={addTask} className="flex gap-2 text-xs">
+                  <input
+                    type="text"
+                    placeholder="عنوان کار (مثال: مطالعه فصل ۱، مرور تست‌ها)..."
+                    value={taskTitle}
+                    onChange={e => setTaskTitle(e.target.value)}
+                    className="flex-1 bg-slate-50 border p-2.5 rounded-xl outline-none"
+                    required
+                  />
+                  <button type="submit" className="bg-emerald-600 text-white font-bold px-4 rounded-xl">افزودن</button>
+                </form>
 
-      return (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-            <div className="bg-white p-5 rounded-3xl border shadow-sm">
-              <span className="text-xs text-slate-400 font-bold">مجموع زمان مطالعه</span>
-              <div className="text-2xl font-black text-indigo-600 mt-1">{totalMinutes} دقیقه</div>
-            </div>
-            <div className="bg-white p-5 rounded-3xl border shadow-sm">
-              <span className="text-xs text-slate-400 font-bold">جلسات برگزارشده</span>
-              <div className="text-2xl font-black text-slate-800 mt-1">{sessions.length} نشست</div>
-            </div>
-            <div className="bg-white p-5 rounded-3xl border shadow-sm">
-              <span className="text-xs text-slate-400 font-bold">اهداف ماهانه فعال</span>
-              <div className="text-2xl font-black text-emerald-600 mt-1">{goals.length} هدف</div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-3">
-            <h4 className="font-bold text-slate-800 text-sm">وضعیت اهداف این ماه محبوبه</h4>
-            {goals.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-400">هنوز هدفی در چت تعریف نشده است.</div>
-            ) : (
-              goals.map(g => (
-                <div key={g.id} className="p-3.5 bg-slate-50 rounded-2xl border space-y-1 text-xs">
-                  <div className="flex items-center justify-between font-bold text-slate-800">
-                    <span>🎯 {g.title}</span>
-                    <span className="text-indigo-600">{g.progress}% پیشرفت</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${g.progress}%` }}></div>
-                  </div>
+                <div className="space-y-2 pt-2">
+                  {tasks.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-slate-400">هنوز تسکی ثبت نشده است.</div>
+                  ) : (
+                    tasks.map(t => (
+                      <div key={t.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs">
+                        <span className="font-bold text-slate-700">{t.title}</span>
+                        <button onClick={() => deleteTask(t.id)} className="text-rose-500 font-bold px-2 py-1">حذف</button>
+                      </div>
+                    ))
+                  )}
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     }
