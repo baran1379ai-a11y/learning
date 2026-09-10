@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#4f46e5">
+  <meta name="theme-color" content="#818cf8">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Learning OS — سیستم‌عامل جامع یادگیری</title>
+  <title>Learning OS — سیستم‌عامل یادگیری</title>
+  
+  <!-- آیکون برنامه برای آیفون، ویندوز و مرورگر -->
+  <link rel="icon" type="image/jpeg" href="icon.jpg">
+  <link rel="apple-touch-icon" href="icon.jpg">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,8 +46,8 @@
     const { useState, useEffect, useMemo } = React;
 
     // دیتابیس لوکال Dexie
-    const db = new Dexie('LearningOS_MultiUser_DB');
-    db.version(1).stores({
+    const db = new Dexie('LearningOS_Cognitive_DB');
+    db.version(3).stores({
       paths: 'id, title, nature, priority',
       resources: 'id, pathId, title, type, content, url',
       topics: 'id, pathId, resourceId, title, isWeak, mastery, prereqTopicId',
@@ -52,10 +56,10 @@
       quizzes: 'id, topicId, score, timestamp',
       flashcards: 'id, topicId, front, back, step, nextReviewDate',
       goals: 'id, pathId, title, type, targetMonth, progress',
-      calendarEvents: 'id, title, date, impactLevel'
+      calendarEvents: 'id, title, date, impactLevel',
+      profile: 'id, fullName, avatar, age, field, interests'
     });
 
-    // احراز هویت و فضای ابری Supabase
     const SUPABASE_URL = 'https://lwsndcosdmjxkhnhjhwx.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_6cS5z3_zbFNr0HN0u3ZD9A_c5uVewyV';
     const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -72,9 +76,15 @@
       const [currentUser, setCurrentUser] = useState(null);
       const [checkingAuth, setCheckingAuth] = useState(true);
       const [authMode, setAuthMode] = useState('login');
+
+      // فیلدهای ثبت‌نام شناختی
       const [fullName, setFullName] = useState('');
+      const [age, setAge] = useState('');
+      const [field, setField] = useState('');
+      const [interests, setInterests] = useState('');
       const [email, setEmail] = useState('');
       const [password, setPassword] = useState('');
+
       const [authLoading, setAuthLoading] = useState(false);
       const [authError, setAuthError] = useState('');
 
@@ -88,12 +98,16 @@
       const [quizzes, setQuizzes] = useState([]);
       const [flashcards, setFlashcards] = useState([]);
       const [goals, setGoals] = useState([]);
+      const [profileData, setProfileData] = useState({ fullName: '', avatar: '', age: '', field: '', interests: '' });
       const [refreshKey, setRefreshKey] = useState(0);
 
-      // استخراج نام کاربر واردشده
       const displayName = useMemo(() => {
-        return currentUser?.user_metadata?.full_name || 'کاربر عزیز';
-      }, [currentUser]);
+        return profileData.fullName || currentUser?.user_metadata?.full_name || 'کاربر عزیز';
+      }, [profileData, currentUser]);
+
+      const displayAvatar = useMemo(() => {
+        return profileData.avatar || currentUser?.user_metadata?.avatar || 'icon.jpg';
+      }, [profileData, currentUser]);
 
       const DAILY_QUOTES = useMemo(() => [
         `هر قدم کوچیکی که امروز برمی‌داری، پلی به سمت اهداف بزرگته ${displayName} جان 🌱`,
@@ -103,7 +117,7 @@
         "تعادل بین زندگی، استراحت و یادگیری، رمز ماندگاری این مسیره 🌿"
       ], [displayName]);
 
-      // بررسی وضعیت احراز هویت اولیه
+      // وضعیت احراز هویت اولیه
       useEffect(() => {
         if (!supabaseClient) {
           setCheckingAuth(false);
@@ -113,6 +127,14 @@
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
           if (session && session.user) {
             setCurrentUser(session.user);
+            const meta = session.user.user_metadata || {};
+            setProfileData({
+              fullName: meta.full_name || '',
+              avatar: meta.avatar || 'icon.jpg',
+              age: meta.age || '',
+              field: meta.field || '',
+              interests: meta.interests || ''
+            });
             syncPull(session.user.id).then(() => loadLocalData());
           }
           setCheckingAuth(false);
@@ -130,7 +152,7 @@
       }, []);
 
       const loadLocalData = async () => {
-        const [p, r, tp, t, s, q, fc, g] = await Promise.all([
+        const [p, r, tp, t, s, q, fc, g, prof] = await Promise.all([
           db.paths.toArray(),
           db.resources.toArray(),
           db.topics.toArray(),
@@ -138,7 +160,8 @@
           db.sessions.toArray(),
           db.quizzes.toArray(),
           db.flashcards.toArray(),
-          db.goals.toArray()
+          db.goals.toArray(),
+          db.profile.get('user_profile')
         ]);
         setPaths(p);
         setResources(r);
@@ -148,6 +171,7 @@
         setQuizzes(q);
         setFlashcards(fc);
         setGoals(g);
+        if (prof) setProfileData(prof);
       };
 
       useEffect(() => {
@@ -156,9 +180,10 @@
 
       const triggerRefresh = () => setRefreshKey(k => k + 1);
 
-      // همگام‌سازی اطلاعات به سرور ابری
+      // همگام‌سازی داده‌ها با ابر
       const syncPush = async () => {
         if (!supabaseClient || !currentUser) return;
+        const currentProf = await db.profile.get('user_profile') || profileData;
         const backup = {
           paths: await db.paths.toArray(),
           tasks: await db.tasks.toArray(),
@@ -167,7 +192,8 @@
           flashcards: await db.flashcards.toArray(),
           quizzes: await db.quizzes.toArray(),
           sessions: await db.sessions.toArray(),
-          goals: await db.goals.toArray()
+          goals: await db.goals.toArray(),
+          profile: currentProf
         };
         await supabaseClient.from('user_data').upsert({
           id: currentUser.id,
@@ -176,7 +202,6 @@
         });
       };
 
-      // دریافت اطلاعات از سرور ابری
       const syncPull = async (userId) => {
         const uid = userId || currentUser?.id;
         if (!supabaseClient || !uid) return;
@@ -191,6 +216,10 @@
         if (c.quizzes) await db.quizzes.bulkPut(c.quizzes);
         if (c.sessions) await db.sessions.bulkPut(c.sessions);
         if (c.goals) await db.goals.bulkPut(c.goals);
+        if (c.profile) {
+          await db.profile.put({ id: 'user_profile', ...c.profile });
+          setProfileData(c.profile);
+        }
       };
 
       // ثبت‌نام و ورود
@@ -208,18 +237,25 @@
         try {
           if (authMode === 'register') {
             const enteredName = fullName.trim() || 'کاربر عزیز';
+            const metaPayload = {
+              full_name: enteredName,
+              avatar: 'icon.jpg',
+              age: age.trim(),
+              field: field.trim(),
+              interests: interests.trim()
+            };
+
             const { data, error } = await supabaseClient.auth.signUp({
               email: email.trim(),
               password: password,
-              options: {
-                data: {
-                  full_name: enteredName
-                }
-              }
+              options: { data: metaPayload }
             });
+
             if (error) throw error;
             if (data?.user) {
               setCurrentUser(data.user);
+              await db.profile.put({ id: 'user_profile', ...metaPayload });
+              setProfileData(metaPayload);
               await syncPull(data.user.id);
               loadLocalData();
             }
@@ -235,7 +271,7 @@
           }
         } catch (err) {
           console.error(err);
-          setAuthError(err.message || 'خطا در برقراری ارتباط');
+          setAuthError(err.message || 'خطا در ارتباط');
         } finally {
           setAuthLoading(false);
         }
@@ -251,9 +287,29 @@
         setTopics([]);
         setGoals([]);
         setSessions([]);
+        setProfileData({ fullName: '', avatar: 'icon.jpg', age: '', field: '', interests: '' });
       };
 
-      // لودینگ اولیه
+      const handleUpdateProfile = async (updatedData) => {
+        setProfileData(updatedData);
+        await db.profile.put({ id: 'user_profile', ...updatedData });
+        
+        if (supabaseClient && currentUser) {
+          await supabaseClient.auth.updateUser({
+            data: {
+              full_name: updatedData.fullName,
+              avatar: updatedData.avatar,
+              age: updatedData.age,
+              field: updatedData.field,
+              interests: updatedData.interests
+            }
+          });
+        }
+        await syncPush();
+        alert('پروفایل شناختی با موفقیت در فضای ابری ذخیره شد ✨');
+        triggerRefresh();
+      };
+
       if (checkingAuth) {
         return (
           <div className="min-h-screen flex items-center justify-center bg-[#FAF9FD]">
@@ -265,17 +321,17 @@
         );
       }
 
-      // ۱. دیوار ورود اجباری (Auth Wall)
+      // دیوار ورود و فرم هوشمند
       if (!currentUser) {
         return (
-          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-[#FAF9FD] to-purple-50 p-4">
-            <div className="bg-white border border-slate-200/80 shadow-2xl rounded-3xl p-6 sm:p-8 w-full max-w-sm space-y-6">
+          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-[#FAF9FD] to-purple-50 p-4 py-8">
+            <div className="bg-white border border-slate-200/80 shadow-2xl rounded-3xl p-6 sm:p-8 w-full max-w-md space-y-6">
               <div className="text-center space-y-2">
-                <div className="w-14 h-14 bg-indigo-600 text-white rounded-3xl mx-auto flex items-center justify-center font-black text-xl shadow-md shadow-indigo-200">
-                  OS
-                </div>
-                <h1 className="font-black text-slate-800 text-xl tracking-tight">Learning OS</h1>
-                <p className="text-xs text-slate-400">سیستم‌عامل جامع یادگیری و مدیریت مهارت‌ها</p>
+                <img src="icon.jpg" alt="Logo" className="w-16 h-16 rounded-2xl mx-auto shadow-md object-cover" />
+                <h1 className="font-black text-slate-800 text-lg">Learning OS</h1>
+                <p className="text-xs text-slate-400">
+                  {authMode === 'register' ? 'مشخصات خود را وارد کنید تا مشاور شما را بشناسد' : 'ورود به حساب کاربری شخصی'}
+                </p>
               </div>
 
               {authError && (
@@ -284,43 +340,79 @@
                 </div>
               )}
 
-              <form onSubmit={handleAuth} className="space-y-4 text-xs">
+              <form onSubmit={handleAuth} className="space-y-3 text-xs">
                 {authMode === 'register' && (
-                  <div>
-                    <label className="block text-slate-600 font-bold mb-1.5">نام یا نام مستعار شما</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="مثلاً: محبوبه، علی، مریم..."
-                      value={fullName}
-                      onChange={e => setFullName(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 focus:outline-none focus:border-indigo-600 text-sm"
-                    />
-                  </div>
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2">
+                        <label className="block text-slate-600 font-bold mb-1">نام و نام خانوادگی</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="مثلاً: محبوبه..."
+                          value={fullName}
+                          onChange={e => setFullName(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-600 font-bold mb-1">سن</label>
+                        <input
+                          type="number"
+                          placeholder="مثلاً: ۲۵"
+                          value={age}
+                          onChange={e => setAge(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs text-center"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">رشته تحصیلی یا حوزه اصلی فعالیت</label>
+                      <input
+                        type="text"
+                        placeholder="مثلاً: روانشناسی، طراحی، آموزش، مهندسی..."
+                        value={field}
+                        onChange={e => setField(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-600 font-bold mb-1">مهارت‌ها و علاقه‌مندی‌های هدف</label>
+                      <textarea
+                        rows="2"
+                        placeholder="مثلاً: رفرنس‌های بالینی، طراحی Canva، زبان و..."
+                        value={interests}
+                        onChange={e => setInterests(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs leading-relaxed"
+                      />
+                    </div>
+                  </>
                 )}
 
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1.5">پست الکترونیک (ایمیل)</label>
+                  <label className="block text-slate-600 font-bold mb-1">پست الکترونیک (ایمیل)</label>
                   <input
                     type="email"
                     required
                     placeholder="name@example.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 focus:outline-none focus:border-indigo-600 text-left font-mono text-sm"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-left font-mono text-xs"
                     dir="ltr"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1.5">رمز عبور (حداقل ۶ کاراکتر)</label>
+                  <label className="block text-slate-600 font-bold mb-1">رمز عبور (حداقل ۶ کاراکتر)</label>
                   <input
                     type="password"
                     required
                     placeholder="••••••••"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 focus:outline-none focus:border-indigo-600 text-left font-mono text-sm"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-left font-mono text-xs"
                     dir="ltr"
                   />
                 </div>
@@ -328,9 +420,9 @@
                 <button
                   type="submit"
                   disabled={authLoading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-lg shadow-indigo-200 transition disabled:opacity-50 text-sm"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-lg shadow-indigo-200 transition disabled:opacity-50 text-xs mt-2"
                 >
-                  {authLoading ? 'در حال برقراری ارتباط...' : (authMode === 'login' ? 'ورود به سیستم' : 'ثبت‌نام و شروع یادگیری')}
+                  {authLoading ? 'در حال برقراری ارتباط...' : (authMode === 'login' ? 'ورود به سیستم‌عامل' : 'تکمیل ثبت‌نام و شناخت مشاور ✨')}
                 </button>
 
                 <div className="text-center pt-2">
@@ -339,7 +431,7 @@
                     onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); }}
                     className="text-xs text-indigo-600 font-bold hover:underline"
                   >
-                    {authMode === 'login' ? 'حساب کاربری ندارید؟ ثبت‌نام کنید' : 'قبلاً حساب ساخته‌اید؟ ورود'}
+                    {authMode === 'login' ? 'حساب کاربری ندارید؟ ثبت‌نام و تکمیل شناخت' : 'قبلاً عضو شده‌اید؟ ورود'}
                   </button>
                 </div>
               </form>
@@ -348,19 +440,19 @@
         );
       }
 
-      // ۲. داشبورد اصلی پس از ورود
+      // داشبورد اصلی
       return (
         <div className="min-h-screen flex bg-[#FAF9FD]">
-          {/* سایدبار دسکتاپ */}
+          {/* سایدبار */}
           <aside className="hidden md:flex flex-col w-64 bg-white border-l border-slate-200/80 p-6 justify-between fixed top-0 bottom-0 right-0 z-20">
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                  OS
-                </div>
-                <div>
-                  <h2 className="font-bold text-slate-800 text-sm leading-tight">Learning OS</h2>
-                  <span className="text-[11px] text-slate-400">فضای یادگیری {displayName}</span>
+                <img src={displayAvatar} alt={displayName} className="w-11 h-11 rounded-2xl object-cover border border-indigo-100 shadow-sm" />
+                <div className="min-w-0">
+                  <h2 className="font-bold text-slate-800 text-sm truncate">{displayName}</h2>
+                  <span className="text-[11px] text-slate-400 truncate block">
+                    {profileData.field ? profileData.field : 'سیستم‌عامل یادگیری'}
+                  </span>
                 </div>
               </div>
 
@@ -372,8 +464,9 @@
                   { id: 'tasks', label: 'برنامه روزانه (WHAT)', icon: '📋' },
                   { id: 'leitner', label: 'جعبه لایتنر هوشمند', icon: '🗂️' },
                   { id: 'recovery', label: 'اتاق ریکاوری و عقب‌افتاده', icon: '🛋️' },
-                  { id: 'assistant', label: 'مشاور و دستیار چتی', icon: '🌸' },
-                  { id: 'reports', label: 'پیشرفت و اهداف ماهانه', icon: '📊' }
+                  { id: 'assistant', label: 'مشاور و دستیار هوشمند', icon: '🌸' },
+                  { id: 'reports', label: 'پیشرفت و اهداف ماهانه', icon: '📊' },
+                  { id: 'profile', label: 'پروفایل و علایق شناختی', icon: '⚙️' }
                 ].map(item => (
                   <button
                     key={item.id}
@@ -390,7 +483,6 @@
             </div>
 
             <div className="space-y-2 border-t pt-4">
-              <div className="text-xs text-slate-600 font-bold truncate">👤 {displayName}</div>
               <div className="text-[11px] text-slate-400 font-mono truncate">{currentUser.email}</div>
               <button
                 onClick={handleLogout}
@@ -401,26 +493,25 @@
             </div>
           </aside>
 
-          {/* بدنه و صفحات */}
+          {/* محتوای اصلی */}
           <main className="flex-1 md:mr-64 flex flex-col min-w-0">
-            {/* هدر بالای صفحه */}
             <header className="bg-white/90 backdrop-blur border-b border-slate-200/80 px-4 md:px-8 py-3 flex items-center justify-between sticky top-0 z-10">
-              <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>حساب متصل: {displayName}</span>
+              <div className="text-xs font-bold text-slate-700 flex items-center gap-2.5">
+                <img src={displayAvatar} alt={displayName} className="w-7 h-7 rounded-full object-cover border" />
+                <span>{displayName} {profileData.field && <span className="text-slate-400 font-normal">({profileData.field})</span>}</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={async () => { await syncPush(); alert('اطلاعات با سرور ابری همگام شد ✅'); }}
                   className="bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl border border-indigo-200 hover:bg-indigo-100"
                 >
-                  ☁️ ذخیره دستی ابری
+                  ☁️ ذخیره ابری
                 </button>
                 <button
-                  onClick={handleLogout}
-                  className="md:hidden text-xs text-rose-600 font-bold px-2 py-1.5"
+                  onClick={() => setCurrentTab('profile')}
+                  className="text-xs text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl font-bold hover:bg-slate-200"
                 >
-                  خروج
+                  ⚙️ پروفایل
                 </button>
               </div>
             </header>
@@ -429,6 +520,7 @@
               {currentTab === 'dashboard' && (
                 <DashboardView
                   displayName={displayName}
+                  displayAvatar={displayAvatar}
                   quotes={DAILY_QUOTES}
                   paths={paths}
                   tasks={tasks}
@@ -461,23 +553,37 @@
               )}
 
               {currentTab === 'assistant' && (
-                <CounselorAssistantView displayName={displayName} paths={paths} topics={topics} goals={goals} triggerRefresh={() => { triggerRefresh(); syncPush(); }} />
+                <CounselorAssistantView
+                  displayName={displayName}
+                  profileData={profileData}
+                  paths={paths}
+                  topics={topics}
+                  goals={goals}
+                  triggerRefresh={() => { triggerRefresh(); syncPush(); }}
+                />
               )}
 
               {currentTab === 'reports' && (
                 <ReportsView displayName={displayName} sessions={sessions} goals={goals} topics={topics} />
               )}
+
+              {currentTab === 'profile' && (
+                <ProfileSettingsView
+                  initialData={profileData}
+                  onSave={handleUpdateProfile}
+                />
+              )}
             </div>
           </main>
 
-          {/* منوی پایین برای موبایل */}
+          {/* نوار پایین موبایل */}
           <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-1 z-30">
             {[
               { id: 'dashboard', label: 'خانه', icon: '🏠' },
               { id: 'tasks', label: 'برنامه', icon: '📋' },
               { id: 'leitner', label: 'لایتنر', icon: '🗂️' },
-              { id: 'recovery', label: 'ریکاوری', icon: '🛋️' },
-              { id: 'assistant', label: 'مشاور', icon: '🌸' }
+              { id: 'assistant', label: 'مشاور', icon: '🌸' },
+              { id: 'profile', label: 'پروفایل', icon: '⚙️' }
             ].map(item => (
               <button
                 key={item.id}
@@ -495,8 +601,202 @@
       );
     }
 
-    // ۱. داشبورد اصلی
-    function DashboardView({ displayName, quotes, paths, tasks, topics, goals, availableTimeMinutes, setAvailableTime, triggerRefresh }) {
+    // تنظیمات پروفایل شناختی
+    function ProfileSettingsView({ initialData, onSave }) {
+      const [fullName, setFullName] = useState(initialData.fullName || '');
+      const [avatar, setAvatar] = useState(initialData.avatar || 'icon.jpg');
+      const [age, setAge] = useState(initialData.age || '');
+      const [field, setField] = useState(initialData.field || '');
+      const [interests, setInterests] = useState(initialData.interests || '');
+
+      const PRESET_AVATARS = [
+        "icon.jpg",
+        "https://api.dicebear.com/7.x/bottts/svg?seed=Felix",
+        "https://api.dicebear.com/7.x/notionists/svg?seed=Mimi",
+        "https://api.dicebear.com/7.x/notionists/svg?seed=Lily",
+        "https://api.dicebear.com/7.x/shapes/svg?seed=Daisy"
+      ];
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.size > 2 * 1024 * 1024) {
+          alert('حجم عکس حداکثر ۲ مگابایت باشد.');
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onloadend = () => setAvatar(reader.result);
+        reader.readAsDataURL(file);
+      };
+
+      const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave({ fullName, avatar, age, field, interests });
+      };
+
+      return (
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm max-w-xl mx-auto space-y-6">
+          <div className="border-b pb-4">
+            <h2 className="font-bold text-slate-800 text-base">پروفایل شناختی و تنظیمات نمایه</h2>
+            <p className="text-xs text-slate-400 mt-1">مشاور هوشمند با بررسی این فیلدها، برنامه‌ها را متناسب با شما تنظیم می‌کند.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <div className="flex flex-col sm:flex-row items-center gap-5 pb-3 border-b">
+              <div className="relative">
+                <img src={avatar} alt="Profile" className="w-20 h-20 rounded-3xl object-cover border-2 border-indigo-500 shadow-md" />
+              </div>
+
+              <div className="space-y-1.5 text-center sm:text-right">
+                <label className="block text-slate-700 font-bold">آپلود عکس جدید از دستگاه:</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="block w-full text-xs text-slate-500 file:mr-0 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <div className="col-span-2">
+                <label className="block text-slate-700 font-bold mb-1">نام و نام خانوادگی:</label>
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 font-bold text-slate-800"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">سن:</label>
+                <input
+                  type="number"
+                  value={age}
+                  onChange={e => setAge(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-center"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">رشته تحصیلی یا حوزه اصلی:</label>
+              <input
+                type="text"
+                value={field}
+                onChange={e => setField(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-slate-700 font-bold mb-1">مهارت‌ها و علاقه‌مندی‌های هدف:</label>
+              <textarea
+                rows="3"
+                value={interests}
+                onChange={e => setInterests(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 leading-relaxed"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-md shadow-indigo-100 transition text-xs mt-2"
+            >
+              ذخیره تغییرات نمایه و به‌روزرسانی مشاور ✓
+            </button>
+          </form>
+        </div>
+      );
+    }
+
+    // مشاور هوشمند تطبیقی
+    function CounselorAssistantView({ displayName, profileData, paths, topics, goals, triggerRefresh }) {
+      const [input, setInput] = useState('');
+      
+      const initialGreeting = useMemo(() => {
+        let text = `سلام ${displayName} جانم! 🌸 من اینجام؛ مثل یک دوست و مشاور یادگیری همگام با تو.`;
+        if (profileData.field) {
+          text += ` با توجه به تمرکزت در حوزه «${profileData.field}»`;
+        }
+        if (profileData.interests) {
+          text += ` و علایق هدف [${profileData.interests}]، برنامه‌ت رو سبک، دقیق و پیوسته می‌چینیم.`;
+        } else {
+          text += ` هر هدفی برای این ماه داری بنویس تا با هم خردش کنیم.`;
+        }
+        return text;
+      }, [displayName, profileData]);
+
+      const [messages, setMessages] = useState([
+        { id: '1', sender: 'counselor', text: initialGreeting }
+      ]);
+
+      const handleSend = (e) => {
+        e.preventDefault();
+        if (!input.trim()) return;
+        const text = input.trim();
+        setMessages(prev => [...prev, { id: 'u-' + Date.now(), sender: 'user', text }]);
+        setInput('');
+
+        setTimeout(() => {
+          let reply = '';
+          if (text.includes('مهمون') || text.includes('خسته') || text.includes('وقت ندارم')) {
+            reply = `${displayName} عزیزم، آرامش و زندگی اولویت اوله 🌸 برنامه رو بردم روی حالت «حفظ پیوستگی کم‌فشار». فقط ۱۰ دقیقه مطالعه هم کافیه تا ریتم حفظ بشه.`;
+          } else if (text.includes('هدف') || text.includes('می‌خوام')) {
+            reply = `هدف فوق‌العاده‌ایه ${displayName} جان! 🎯 بر اساس زمینه تخصصی‌ت، اون رو خرد کردم و آماده تیک زدن در داشبورد گذاشتم.`;
+          } else {
+            reply = `پیامت دریافت شد ${displayName} جان 🌸 همراهتم تا با ریتم پایدار و بدون فرسودگی مهارت‌هات رو ارتقا بدی.`;
+          }
+          setMessages(prev => [...prev, { id: 'c-' + Date.now(), sender: 'counselor', text: reply }]);
+        }, 400);
+      };
+
+      return (
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm flex flex-col h-[520px]">
+          <div className="p-4 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🌸</span>
+              <div>
+                <h3 className="font-bold text-slate-800 text-xs">مشاور و همراه هوشمند</h3>
+                <span className="text-[10px] text-emerald-600 font-bold">● متصل به علایق {displayName}</span>
+              </div>
+            </div>
+            {profileData.field && (
+              <span className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full font-bold">
+                حوزه: {profileData.field}
+              </span>
+            )}
+          </div>
+
+          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
+            {messages.map(m => (
+              <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] p-3.5 rounded-2xl whitespace-pre-wrap leading-relaxed ${m.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-[#FAF8FE] text-slate-800 border'}`}>
+                  {m.text}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <form onSubmit={handleSend} className="p-3 border-t flex gap-2">
+            <input
+              type="text"
+              placeholder="پیام یا هدف جدیدت رو اینجا بنویس..."
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              className="flex-1 bg-slate-50 border rounded-2xl px-4 py-2.5 text-xs focus:outline-none"
+            />
+            <button type="submit" className="bg-indigo-600 text-white font-bold px-5 py-2.5 rounded-2xl text-xs hover:bg-indigo-700">ارسال</button>
+          </form>
+        </div>
+      );
+    }
+
+    // داشبورد اصلی
+    function DashboardView({ displayName, displayAvatar, quotes, paths, tasks, topics, goals, availableTimeMinutes, setAvailableTime, triggerRefresh }) {
       const todayDate = useMemo(() => getJalaliDate(), []);
       const quote = useMemo(() => quotes[new Date().getDate() % quotes.length], [quotes]);
 
@@ -525,15 +825,18 @@
 
       return (
         <div className="space-y-6">
-          <div className="bg-gradient-to-l from-indigo-50 via-purple-50 to-pink-50 border border-purple-100 rounded-3xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-indigo-700 text-xs font-bold mb-1">
-              <span>📅</span>
-              <span>{todayDate}</span>
+          <div className="bg-gradient-to-l from-indigo-50 via-purple-50 to-pink-50 border border-purple-100 rounded-3xl p-6 shadow-sm flex items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-indigo-700 text-xs font-bold mb-1">
+                <span>📅</span>
+                <span>{todayDate}</span>
+              </div>
+              <h1 className="text-xl md:text-2xl font-black text-slate-800">
+                سلام {displayName} جان! روزت سرشار از آرامش 🌸
+              </h1>
+              <p className="text-xs md:text-sm text-slate-600 mt-2">«{quote}»</p>
             </div>
-            <h1 className="text-xl md:text-2xl font-black text-slate-800">
-              سلام {displayName} جان! روزت سرشار از آرامش 🌸
-            </h1>
-            <p className="text-xs md:text-sm text-slate-600 mt-2">«{quote}»</p>
+            <img src={displayAvatar} alt={displayName} className="w-16 h-16 md:w-20 md:h-20 rounded-3xl object-cover border-2 border-white shadow-md hidden sm:block" />
           </div>
 
           {topTask && (
@@ -605,7 +908,7 @@
       );
     }
 
-    // ۲. وب کلیپر
+    // وب کلیپر
     function WebClipperView({ paths, triggerRefresh }) {
       const [url, setUrl] = useState('');
       const [pathId, setPathId] = useState(paths[0]?.id || '');
@@ -618,7 +921,7 @@
         if (!url) return;
         setIsExtracting(true);
         setTimeout(() => {
-          const sampleText = `این نسخه استخراج‌شده از لینک (${url}) است.\nمفاهیم کلیدی، پاراگراف‌های اصلی و تعاریف بدون آگهی‌های اضافه ذخیره شدند.`;
+          const sampleText = `این نسخه استخراج‌شده از لینک (${url}) است.\nمفاهیم کلیدی، تعاریف و نکات بدون تبلیغات ثبت شدند.`;
           setExtractedContent(sampleText);
           setIsExtracting(false);
         }, 600);
@@ -634,7 +937,7 @@
           content: extractedContent,
           url
         });
-        alert('منبع در فضای ذخیره‌سازی ثبت شد ✨');
+        alert('منبع در رفرنس‌های شما ذخیره شد ✨');
         setUrl('');
         setTitle('');
         setExtractedContent('');
@@ -644,9 +947,7 @@
       return (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
-            <h3 className="font-bold text-slate-800 text-sm">استخراج مقالات و منابع آنلاین</h3>
-            <p className="text-xs text-slate-400">لینک صفحه آموزش یا مقاله را وارد کنید تا به صورت تمیز ذخیره شود.</p>
-
+            <h3 className="font-bold text-slate-800 text-sm">استخراج مقالات و منابع وب</h3>
             <form onSubmit={handleClipper} className="space-y-3 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
@@ -659,13 +960,12 @@
                 />
                 <input
                   type="text"
-                  placeholder="عنوان اختیاری..."
+                  placeholder="عنوان منبع..."
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   className="bg-slate-50 border p-2.5 rounded-xl focus:outline-none"
                 />
               </div>
-
               <div className="flex items-center justify-between gap-3">
                 <select
                   value={pathId}
@@ -690,10 +990,6 @@
 
           {extractedContent && (
             <div className="bg-white p-6 rounded-3xl border border-emerald-200 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-slate-800 text-xs">متن خلاصه‌سازی شده:</h4>
-                <span className="text-[10px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded font-bold">پاکسازی‌شده</span>
-              </div>
               <div className="p-4 bg-slate-50 rounded-2xl text-xs text-slate-700 whitespace-pre-wrap leading-relaxed border">
                 {extractedContent}
               </div>
@@ -709,7 +1005,7 @@
       );
     }
 
-    // ۳. جعبه لایتنر هوشمند
+    // لایتنر هوشمند
     function LeitnerView({ topics, flashcards, triggerRefresh }) {
       const [front, setFront] = useState('');
       const [back, setBack] = useState('');
@@ -745,11 +1041,11 @@
       return (
         <div className="space-y-6">
           <form onSubmit={handleAddCard} className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3 text-xs">
-            <h3 className="font-bold text-slate-800 text-sm">افزودن کارت مرور به جعبه لایتنر</h3>
+            <h3 className="font-bold text-slate-800 text-sm">افزودن فلش‌کارت مرور فواصل‌دار</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input
                 type="text"
-                placeholder="روی کارت (سوال)..."
+                placeholder="روی کارت (سوال / مفهوم کلیدی)..."
                 value={front}
                 onChange={e => setFront(e.target.value)}
                 className="bg-slate-50 border p-2.5 rounded-xl"
@@ -757,7 +1053,7 @@
               />
               <input
                 type="text"
-                placeholder="پشت کارت (پاسخ)..."
+                placeholder="پشت کارت (پاسخ / توضیح)..."
                 value={back}
                 onChange={e => setBack(e.target.value)}
                 className="bg-slate-50 border p-2.5 rounded-xl"
@@ -819,7 +1115,7 @@
       );
     }
 
-    // ۴. اتاق ریکاوری
+    // اتاق ریکاوری
     function RecoveryLoungeView({ displayName, tasks, topics, triggerRefresh }) {
       const weakTopics = topics.filter(t => t.isWeak || t.mastery < 65);
       return (
@@ -848,54 +1144,7 @@
       );
     }
 
-    // ۵. مشاور چتی
-    function CounselorAssistantView({ displayName, paths, topics, goals, triggerRefresh }) {
-      const [input, setInput] = useState('');
-      const [messages, setMessages] = useState([
-        { id: '1', sender: 'counselor', text: `سلام ${displayName} جانم! 🌸 من اینجام؛ مثل یک دوست و مشاور دلسوز. هر هدفی داری یا تغییری در برنامه‌ت پیش اومده بگو تا با هم تنظیمش کنیم.` }
-      ]);
-
-      const handleSend = (e) => {
-        e.preventDefault();
-        if (!input.trim()) return;
-        const text = input.trim();
-        setMessages(prev => [...prev, { id: 'u-' + Date.now(), sender: 'user', text }]);
-        setInput('');
-        setTimeout(() => {
-          setMessages(prev => [...prev, { id: 'c-' + Date.now(), sender: 'counselor', text: `پیامت دریافت شد ${displayName} جان 🌸 با آرامش و پیوستگی ادامه بده.` }]);
-        }, 400);
-      };
-
-      return (
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-sm flex flex-col h-[520px]">
-          <div className="p-4 border-b flex items-center gap-2">
-            <span className="text-xl">🌸</span>
-            <h3 className="font-bold text-slate-800 text-xs">مشاور و همراه یادگیری</h3>
-          </div>
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-            {messages.map(m => (
-              <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-3.5 rounded-2xl whitespace-pre-wrap leading-relaxed ${m.sender === 'user' ? 'bg-indigo-600 text-white' : 'bg-[#FAF8FE] text-slate-800 border'}`}>
-                  {m.text}
-                </div>
-              </div>
-            ))}
-          </div>
-          <form onSubmit={handleSend} className="p-3 border-t flex gap-2">
-            <input
-              type="text"
-              placeholder="پیام خود را بنویسید..."
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              className="flex-1 bg-slate-50 border rounded-2xl px-4 py-2.5 text-xs focus:outline-none"
-            />
-            <button type="submit" className="bg-indigo-600 text-white font-bold px-5 py-2.5 rounded-2xl text-xs">ارسال</button>
-          </form>
-        </div>
-      );
-    }
-
-    // ۶. مسیرهای یادگیری
+    // مسیرهای یادگیری
     function PathsUniversalView({ paths, topics, triggerRefresh }) {
       const [showModal, setShowModal] = useState(false);
       const [title, setTitle] = useState('');
@@ -945,7 +1194,7 @@
       );
     }
 
-    // ۷. تسک‌ها
+    // تسک‌ها
     function TasksView({ paths, tasks, triggerRefresh }) {
       const [title, setTitle] = useState('');
       const [pathId, setPathId] = useState(paths[0]?.id || '');
@@ -962,7 +1211,7 @@
       return (
         <div className="space-y-6">
           <form onSubmit={handleAdd} className="bg-white p-5 rounded-3xl border space-y-3 text-xs">
-            <h3 className="font-bold text-slate-800 text-sm">افزودن تسک</h3>
+            <h3 className="font-bold text-slate-800 text-sm">افزودن تسک روزانه</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input type="text" placeholder="عنوان کار..." value={title} onChange={e => setTitle(e.target.value)} className="bg-slate-50 border p-2.5 rounded-xl" required />
               <select value={pathId} onChange={e => setPathId(e.target.value)} className="bg-slate-50 border p-2.5 rounded-xl">
@@ -988,7 +1237,7 @@
       );
     }
 
-    // ۸. گزارش‌ها
+    // گزارش‌ها
     function ReportsView({ displayName, sessions, goals, topics }) {
       const totalMinutes = sessions.reduce((acc, s) => acc + s.durationMinutes, 0);
       return (
