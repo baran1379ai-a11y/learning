@@ -8,14 +8,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Learning OS — سیستم‌عامل یادگیری</title>
   
-  <!-- آیکون برنامه برای آیفون، ویندوز و مرورگر -->
   <link rel="icon" type="image/jpeg" href="icon.jpg">
   <link rel="apple-touch-icon" href="icon.jpg">
   <link rel="manifest" href="./manifest.json">
   <meta name="apple-mobile-web-app-title" content="Learning OS">
   <script>
     if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js');
+      navigator.serviceWorker.register('./sw.js');
     }
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -49,9 +48,8 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useMemo } = React;
+    const { useState, useEffect, useMemo, useRef } = React;
 
-    // دیتابیس لوکال Dexie
     const db = new Dexie('LearningOS_Cognitive_DB');
     db.version(3).stores({
       paths: 'id, title, nature, priority',
@@ -78,12 +76,321 @@
       }
     }
 
+    const COMPANIONS = [
+      { id: 'hooty', name: 'هدهد دانا', title: 'عاشق منطق و کنکور', emoji: '🦉', desc: 'تمرکز بالا و بدون حواس‌پرتی' },
+      { id: 'milo', name: 'میلو', title: 'گربه آرام و ریلکس', emoji: '🐱', desc: 'مطالعه آرام همراه با لوفای' },
+      { id: 'sprout', name: 'جوانه', title: 'نماد رشد مداوم', emoji: '🌱', desc: 'رشد گام‌به‌گام با هر دقیقه تمرکز' },
+      { id: 'mocha', name: 'موکا', title: 'پاندای حامی و ضد اضطراب', emoji: '🦊', desc: 'آرام‌بخش زمان‌های استرس امتحان' },
+      { id: 'botty', name: 'کوچولو', title: 'دستیار رباتیک متمرکز', emoji: '🤖', desc: 'محاسبه دقیق زمان و بازدهی' },
+      { id: 'luna', name: 'لونا', title: 'ابر شب‌زنده‌دار و مهربان', emoji: '☁️', desc: 'همراه مطالعه شبانه و عمیق' }
+    ];
+
+    function FocusTimer({ onSessionSaved }) {
+      const [selectedBuddy, setSelectedBuddy] = useState(null);
+      const [buddyCustomName, setBuddyCustomName] = useState('');
+      const [isEditingBuddy, setIsEditingBuddy] = useState(false);
+      const [timeLeft, setTimeLeft] = useState(25 * 60);
+      const [isRunning, setIsRunning] = useState(false);
+      const [sessionSecondsPassed, setSessionSecondsPassed] = useState(0);
+      const [activeSound, setActiveSound] = useState(null);
+      const [notificationPermission, setNotificationPermission] = useState(
+        typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
+      );
+      const audioRef = useRef(null);
+
+      const buddyName = buddyCustomName || selectedBuddy?.name || 'همراه شما';
+
+      // تابع ارسال نوتیفیکیشن استاندارد
+      const sendBuddyNotification = (title, body) => {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'granted') {
+          try {
+            new Notification(title, {
+              body,
+              icon: 'icon.jpg',
+              badge: 'icon.jpg'
+            });
+          } catch (e) {
+            console.warn('نوتیفیکیشن فعال نشد:', e);
+          }
+        }
+      };
+
+      // درخواست مجوز اعلان
+      const requestNotificationPermission = async () => {
+        if (!('Notification' in window)) {
+          alert('مرورگر شما از نوتیفیکیشن پشتیبانی نمی‌کند.');
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        setNotificationPermission(permission);
+        if (permission === 'granted') {
+          sendBuddyNotification(`🔔 سلام از طرف ${buddyName}!`, 'از الان هشدارهای تمرکز و پیام‌های مشوق همراهت را اینجا می‌بینی.');
+        }
+      };
+
+      // تشخیص خروج کاربر از تب حین مطالعه فعال (مکانیزم دولینگو)
+      useEffect(() => {
+        const handleVisibilityChange = () => {
+          if (document.hidden && isRunning) {
+            sendBuddyNotification(
+              `👀 هی! ${buddyName} صدات می‌کنه...`,
+              'کجا رفتی؟ کتابت روی میز بازه! برگرد تا ریتم مطالعه‌ت نشکنه ☕'
+            );
+          }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }, [isRunning, buddyName]);
+
+      useEffect(() => {
+        const saved = localStorage.getItem('study_buddy');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            setSelectedBuddy(parsed.buddy);
+            setBuddyCustomName(parsed.customName);
+          } catch (e) {
+            setIsEditingBuddy(true);
+          }
+        } else {
+          setIsEditingBuddy(true);
+        }
+      }, []);
+
+      useEffect(() => {
+        let timer = null;
+        if (isRunning && timeLeft > 0) {
+          timer = setInterval(() => {
+            setTimeLeft(prev => prev - 1);
+            setSessionSecondsPassed(prev => prev + 1);
+          }, 1000);
+        } else if (timeLeft === 0 && isRunning) {
+          handleCompleteSession();
+        }
+        return () => clearInterval(timer);
+      }, [isRunning, timeLeft]);
+
+      const soundTracks = {
+        rain: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=soft-rain-ambient-111154.mp3',
+        lofi: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-study-112191.mp3'
+      };
+
+      const toggleSound = (type) => {
+        if (activeSound === type) {
+          if (audioRef.current) audioRef.current.pause();
+          setActiveSound(null);
+        } else {
+          setActiveSound(type);
+          if (audioRef.current) {
+            audioRef.current.src = soundTracks[type];
+            audioRef.current.play().catch(() => {});
+          }
+        }
+      };
+
+      const handleSaveBuddy = (buddy) => {
+        const name = buddyCustomName.trim() || buddy.name;
+        setSelectedBuddy(buddy);
+        setBuddyCustomName(name);
+        localStorage.setItem('study_buddy', JSON.stringify({ buddy, customName: name }));
+        setIsEditingBuddy(false);
+      };
+
+      const handleReset = () => {
+        setIsRunning(false);
+        setTimeLeft(25 * 60);
+        setSessionSecondsPassed(0);
+      };
+
+      const handleCompleteSession = async () => {
+        setIsRunning(false);
+        if (audioRef.current) audioRef.current.pause();
+        const minutesStudied = Math.max(1, Math.round(sessionSecondsPassed / 60));
+        
+        await db.sessions.add({
+          id: 'sess-' + Date.now(),
+          durationMinutes: minutesStudied,
+          timestamp: new Date().toISOString()
+        });
+
+        if (supabaseClient) {
+          try {
+            const { data: { user } } = await supabaseClient.auth.getUser();
+            if (user) {
+              await supabaseClient.from('study_sessions').insert([{
+                user_id: user.id,
+                duration_minutes: minutesStudied,
+                buddy_id: selectedBuddy?.id
+              }]);
+            }
+          } catch (err) {
+            console.error(err);
+          }
+        }
+
+        sendBuddyNotification(
+          `🎉 آفرین از طرف ${buddyName}!`,
+          `یک بازه تمرکز عمیق (${minutesStudied} دقیقه) رو با موفقیت تموم کردیم. بهت افتخار می‌کنم!`
+        );
+
+        alert(`آفرین! ${minutesStudied} دقیقه تمرکز عمیق ثبت شد ✨`);
+        if (onSessionSaved) onSessionSaved();
+        handleReset();
+      };
+
+      const formatTime = (secs) => {
+        const m = Math.floor(secs / 60).toString().padStart(2, '0');
+        const s = (secs % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+      };
+
+      if (isEditingBuddy || !selectedBuddy) {
+        return (
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 shadow-md border border-indigo-100 text-right space-y-4">
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span>✨</span> هم‌مسیر مطالعه‌ات را انتخاب کن
+            </h3>
+            <p className="text-xs text-slate-400">این همراه در طول مطالعه، ریتم و انگیزه‌ات را همراهی می‌کند.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {COMPANIONS.map((b) => (
+                <div
+                  key={b.id}
+                  onClick={() => setSelectedBuddy(b)}
+                  className={`cursor-pointer p-3 rounded-2xl border text-center transition-all ${
+                    selectedBuddy?.id === b.id 
+                      ? 'border-indigo-500 bg-indigo-50/80 shadow-sm scale-105' 
+                      : 'border-slate-100 bg-white hover:border-indigo-200'
+                  }`}
+                >
+                  <div className="text-3xl mb-1">{b.emoji}</div>
+                  <div className="font-bold text-xs text-slate-800">{b.name}</div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">{b.title}</div>
+                </div>
+              ))}
+            </div>
+            {selectedBuddy && (
+              <div className="space-y-2 pt-2 border-t">
+                <input 
+                  type="text"
+                  placeholder={`نام دلخواه (پیش‌فرض: ${selectedBuddy.name})`}
+                  value={buddyCustomName}
+                  onChange={(e) => setBuddyCustomName(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-right"
+                />
+                <button 
+                  onClick={() => handleSaveBuddy(selectedBuddy)}
+                  className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-indigo-700 transition"
+                >
+                  تأیید و شروع تمرکز با {buddyCustomName || selectedBuddy.name}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      return (
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl p-6 shadow-sm border border-indigo-100 text-center space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsEditingBuddy(true)}
+                className="text-[11px] text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full font-bold hover:bg-indigo-100 transition"
+              >
+                تغییر همراه
+              </button>
+              {notificationPermission !== 'granted' && (
+                <button
+                  onClick={requestNotificationPermission}
+                  className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full font-bold hover:bg-amber-100 transition flex items-center gap-1"
+                >
+                  <span>🔔</span> فعال‌سازی نوتیف
+                </button>
+              )}
+            </div>
+            <span className="text-xs font-bold text-slate-700">همراه مطالعه: {buddyName}</span>
+          </div>
+
+          <div className="flex flex-col items-center justify-center">
+            <div className={`text-6xl p-4 rounded-3xl bg-indigo-50/70 border border-indigo-100 transition-transform duration-500 ${
+              isRunning ? 'scale-110 animate-bounce' : ''
+            }`}>
+              {selectedBuddy.emoji}
+            </div>
+            <div className="mt-2 text-xs text-slate-500 font-medium">
+              {isRunning ? `🤫 ${buddyName} داره کنارت عمیق مطالعه می‌کنه...` : `☕ ${buddyName} منتظر شروع جلسه است`}
+            </div>
+          </div>
+
+          <div className="text-4xl font-black text-slate-800 tracking-wider font-mono">
+            {formatTime(timeLeft)}
+          </div>
+
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={() => {
+                const nextRunning = !isRunning;
+                setIsRunning(nextRunning);
+                if (nextRunning && notificationPermission !== 'granted' && 'Notification' in window) {
+                  Notification.requestPermission().then(p => setNotificationPermission(p));
+                }
+              }}
+              className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-md transition-all ${
+                isRunning ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
+            >
+              {isRunning ? 'توقف موقت ⏸' : 'شروع تمرکز ▶'}
+            </button>
+
+            {sessionSecondsPassed > 10 && (
+              <button
+                onClick={handleCompleteSession}
+                className="px-3.5 py-2.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-xs font-bold hover:bg-emerald-100 transition"
+              >
+                ثبت جلسه 💾
+              </button>
+            )}
+
+            <button
+              onClick={handleReset}
+              className="p-2.5 text-slate-400 hover:text-slate-600 rounded-xl border border-slate-100 text-xs"
+              title="تنظیم مجدد"
+            >
+              🔄
+            </button>
+          </div>
+
+          <div className="border-t border-slate-100 pt-3 flex items-center justify-center gap-2 text-xs">
+            <span className="text-[11px] text-slate-400">صداهای آرامش‌بخش:</span>
+            <button
+              onClick={() => toggleSound('rain')}
+              className={`text-[11px] px-3 py-1 rounded-xl border font-bold transition-all ${
+                activeSound === 'rain' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200'
+              }`}
+            >
+              🌧 باران
+            </button>
+            <button
+              onClick={() => toggleSound('lofi')}
+              className={`text-[11px] px-3 py-1 rounded-xl border font-bold transition-all ${
+                activeSound === 'lofi' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-slate-50 text-slate-600 border-slate-200'
+              }`}
+            >
+              🎧 لوفای
+            </button>
+            <audio ref={audioRef} loop />
+          </div>
+        </div>
+      );
+    }
+
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
       const [checkingAuth, setCheckingAuth] = useState(true);
       const [authMode, setAuthMode] = useState('login');
 
-      // فیلدهای ثبت‌نام شناختی
       const [fullName, setFullName] = useState('');
       const [age, setAge] = useState('');
       const [field, setField] = useState('');
@@ -123,7 +430,6 @@
         "تعادل بین زندگی، استراحت و یادگیری، رمز ماندگاری این مسیره 🌿"
       ], [displayName]);
 
-      // وضعیت احراز هویت اولیه
       useEffect(() => {
         if (!supabaseClient) {
           setCheckingAuth(false);
@@ -186,7 +492,6 @@
 
       const triggerRefresh = () => setRefreshKey(k => k + 1);
 
-      // همگام‌سازی داده‌ها با ابر
       const syncPush = async () => {
         if (!supabaseClient || !currentUser) return;
         const currentProf = await db.profile.get('user_profile') || profileData;
@@ -228,7 +533,6 @@
         }
       };
 
-      // ثبت‌نام و ورود
       const handleAuth = async (e) => {
         e.preventDefault();
         setAuthError('');
@@ -327,7 +631,6 @@
         );
       }
 
-      // دیوار ورود و فرم هوشمند
       if (!currentUser) {
         return (
           <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-[#FAF9FD] to-purple-50 p-4 py-8">
@@ -377,7 +680,7 @@
                       <label className="block text-slate-600 font-bold mb-1">رشته تحصیلی یا حوزه اصلی فعالیت</label>
                       <input
                         type="text"
-                        placeholder="مثلاً: روانشناسی، طراحی، آموزش، مهندسی..."
+                        placeholder="مثلاً: روانشناسی، طراحی، آموزش..."
                         value={field}
                         onChange={e => setField(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs"
@@ -388,7 +691,7 @@
                       <label className="block text-slate-600 font-bold mb-1">مهارت‌ها و علاقه‌مندی‌های هدف</label>
                       <textarea
                         rows="2"
-                        placeholder="مثلاً: رفرنس‌های بالینی، طراحی Canva، زبان و..."
+                        placeholder="مثلاً: رفرنس‌های بالینی، طراحی Canva، زبان..."
                         value={interests}
                         onChange={e => setInterests(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs leading-relaxed"
@@ -446,10 +749,8 @@
         );
       }
 
-      // داشبورد اصلی
       return (
         <div className="min-h-screen flex bg-[#FAF9FD]">
-          {/* سایدبار */}
           <aside className="hidden md:flex flex-col w-64 bg-white border-l border-slate-200/80 p-6 justify-between fixed top-0 bottom-0 right-0 z-20">
             <div className="space-y-6">
               <div className="flex items-center gap-3">
@@ -499,7 +800,6 @@
             </div>
           </aside>
 
-          {/* محتوای اصلی */}
           <main className="flex-1 md:mr-64 flex flex-col min-w-0">
             <header className="bg-white/90 backdrop-blur border-b border-slate-200/80 px-4 md:px-8 py-3 flex items-center justify-between sticky top-0 z-10">
               <div className="text-xs font-bold text-slate-700 flex items-center gap-2.5">
@@ -582,7 +882,6 @@
             </div>
           </main>
 
-          {/* نوار پایین موبایل */}
           <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-1 z-30">
             {[
               { id: 'dashboard', label: 'خانه', icon: '🏠' },
@@ -607,21 +906,12 @@
       );
     }
 
-    // تنظیمات پروفایل شناختی
     function ProfileSettingsView({ initialData, onSave }) {
       const [fullName, setFullName] = useState(initialData.fullName || '');
       const [avatar, setAvatar] = useState(initialData.avatar || 'icon.jpg');
       const [age, setAge] = useState(initialData.age || '');
       const [field, setField] = useState(initialData.field || '');
       const [interests, setInterests] = useState(initialData.interests || '');
-
-      const PRESET_AVATARS = [
-        "icon.jpg",
-        "https://api.dicebear.com/7.x/bottts/svg?seed=Felix",
-        "https://api.dicebear.com/7.x/notionists/svg?seed=Mimi",
-        "https://api.dicebear.com/7.x/notionists/svg?seed=Lily",
-        "https://api.dicebear.com/7.x/shapes/svg?seed=Daisy"
-      ];
 
       const handleImageUpload = (e) => {
         const file = e.target.files[0];
@@ -651,10 +941,7 @@
 
           <form onSubmit={handleSubmit} className="space-y-4 text-xs">
             <div className="flex flex-col sm:flex-row items-center gap-5 pb-3 border-b">
-              <div className="relative">
-                <img src={avatar} alt="Profile" className="w-20 h-20 rounded-3xl object-cover border-2 border-indigo-500 shadow-md" />
-              </div>
-
+              <img src={avatar} alt="Profile" className="w-20 h-20 rounded-3xl object-cover border-2 border-indigo-500 shadow-md" />
               <div className="space-y-1.5 text-center sm:text-right">
                 <label className="block text-slate-700 font-bold">آپلود عکس جدید از دستگاه:</label>
                 <input
@@ -719,7 +1006,6 @@
       );
     }
 
-    // مشاور هوشمند تطبیقی
     function CounselorAssistantView({ displayName, profileData, paths, topics, goals, triggerRefresh }) {
       const [input, setInput] = useState('');
       
@@ -801,7 +1087,6 @@
       );
     }
 
-    // داشبورد اصلی
     function DashboardView({ displayName, displayAvatar, quotes, paths, tasks, topics, goals, availableTimeMinutes, setAvailableTime, triggerRefresh }) {
       const todayDate = useMemo(() => getJalaliDate(), []);
       const quote = useMemo(() => quotes[new Date().getDate() % quotes.length], [quotes]);
@@ -845,6 +1130,9 @@
             <img src={displayAvatar} alt={displayName} className="w-16 h-16 md:w-20 md:h-20 rounded-3xl object-cover border-2 border-white shadow-md hidden sm:block" />
           </div>
 
+          {/* اتاق تمرکز، کاراکتر و سیستم نوتیفیکیشن */}
+          <FocusTimer onSessionSaved={triggerRefresh} />
+
           {topTask && (
             <div className="bg-white border-2 border-indigo-100 rounded-3xl p-5 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 right-0 w-2 h-full bg-indigo-600"></div>
@@ -858,7 +1146,7 @@
                 </div>
                 <button
                   onClick={() => toggleTask(topTask)}
-                  className="bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-indigo-700"
+                  className="bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition"
                 >
                   انجام شد ✓
                 </button>
@@ -914,7 +1202,6 @@
       );
     }
 
-    // وب کلیپر
     function WebClipperView({ paths, triggerRefresh }) {
       const [url, setUrl] = useState('');
       const [pathId, setPathId] = useState(paths[0]?.id || '');
@@ -986,7 +1273,7 @@
                 <button
                   type="submit"
                   disabled={isExtracting}
-                  className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50"
+                  className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition"
                 >
                   {isExtracting ? 'در حال پردازش...' : 'استخراج محتوا ⚡'}
                 </button>
@@ -1001,7 +1288,7 @@
               </div>
               <button
                 onClick={handleSaveResource}
-                className="bg-emerald-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl hover:bg-emerald-700"
+                className="bg-emerald-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl hover:bg-emerald-700 transition"
               >
                 ذخیره در رفرنس‌های این مهارت ✓
               </button>
@@ -1011,7 +1298,6 @@
       );
     }
 
-    // لایتنر هوشمند
     function LeitnerView({ topics, flashcards, triggerRefresh }) {
       const [front, setFront] = useState('');
       const [back, setBack] = useState('');
@@ -1076,7 +1362,7 @@
                   <option key={t.id} value={t.id}>{t.title}</option>
                 ))}
               </select>
-              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-xl">
+              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-xl hover:bg-indigo-700 transition">
                 ثبت کارت
               </button>
             </div>
@@ -1121,7 +1407,6 @@
       );
     }
 
-    // اتاق ریکاوری
     function RecoveryLoungeView({ displayName, tasks, topics, triggerRefresh }) {
       const weakTopics = topics.filter(t => t.isWeak || t.mastery < 65);
       return (
@@ -1150,7 +1435,6 @@
       );
     }
 
-    // مسیرهای یادگیری
     function PathsUniversalView({ paths, topics, triggerRefresh }) {
       const [showModal, setShowModal] = useState(false);
       const [title, setTitle] = useState('');
@@ -1170,7 +1454,7 @@
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-slate-800 text-base">مسیرهای یادگیری</h2>
-            <button onClick={() => setShowModal(true)} className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl">+ مسیر جدید</button>
+            <button onClick={() => setShowModal(true)} className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-indigo-700 transition">+ مسیر جدید</button>
           </div>
           {showModal && (
             <form onSubmit={handleAdd} className="bg-white p-5 rounded-3xl border space-y-3 text-xs">
@@ -1181,7 +1465,7 @@
               <input type="text" placeholder="هدف کلی..." value={goal} onChange={e => setGoal(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl" />
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="text-slate-400 px-3">لغو</button>
-                <button type="submit" className="bg-indigo-600 text-white font-bold px-4 py-2 rounded-xl">ذخیره</button>
+                <button type="submit" className="bg-indigo-600 text-white font-bold px-4 py-2 rounded-xl hover:bg-indigo-700">ذخیره</button>
               </div>
             </form>
           )}
@@ -1200,7 +1484,6 @@
       );
     }
 
-    // تسک‌ها
     function TasksView({ paths, tasks, triggerRefresh }) {
       const [title, setTitle] = useState('');
       const [pathId, setPathId] = useState(paths[0]?.id || '');
@@ -1228,7 +1511,7 @@
             </div>
             <div className="flex items-center justify-between">
               <input type="number" placeholder="زمان (دقیقه)" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} className="bg-slate-50 border p-2 rounded-xl w-32" />
-              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl">ثبت تسک</button>
+              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition">ثبت تسک</button>
             </div>
           </form>
           <div className="space-y-2">
@@ -1243,9 +1526,8 @@
       );
     }
 
-    // گزارش‌ها
     function ReportsView({ displayName, sessions, goals, topics }) {
-      const totalMinutes = sessions.reduce((acc, s) => acc + s.durationMinutes, 0);
+      const totalMinutes = sessions.reduce((acc, s) => acc + (s.durationMinutes || 0), 0);
       return (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
@@ -1262,7 +1544,7 @@
               <div className="text-2xl font-black text-emerald-600 mt-1">{goals.length} هدف</div>
             </div>
           </div>
-<FocusTimer />
+          
           <div className="bg-white p-6 rounded-3xl border shadow-sm space-y-3">
             <h4 className="font-bold text-slate-800 text-sm">وضعیت اهداف این ماه {displayName}</h4>
             {goals.length === 0 ? (
@@ -1284,236 +1566,7 @@
         </div>
       );
     }
-// --- بخش تمرکز و کاراکتر همراه ---
-const COMPANIONS = [
-  { id: 'hooty', name: 'هدهد دانا', title: 'عاشق منطق و کنکور', emoji: '🦉', desc: 'تمرکز بالا و بدون حواس‌پرتی' },
-  { id: 'milo', name: 'میلو', title: 'گربه آرام و ریلکس', emoji: '🐱', desc: 'مطالعه آرام همراه با لوفای' },
-  { id: 'sprout', name: 'جوانه', title: 'نماد رشد مداوم', emoji: '🌱', desc: 'رشد گام‌به‌گام با هر دقیقه تمرکز' },
-  { id: 'mocha', name: 'موکا', title: 'پاندای حامی و ضد اضطراب', emoji: '🦊', desc: 'آرام‌بخش زمان‌های استرس امتحان' },
-  { id: 'botty', name: 'کوچولو', title: 'دستیار رباتیک متمرکز', emoji: '🤖', desc: 'محاسبه دقیق زمان و بازدهی' },
-  { id: 'luna', name: 'لونا', title: 'ابر شب‌زنده‌دار و مهربان', emoji: '☁️', desc: 'همراه مطالعه شبانه و عمیق' }
-];
 
-function FocusTimer() {
-  const [selectedBuddy, setSelectedBuddy] = React.useState(null);
-  const [buddyCustomName, setBuddyCustomName] = React.useState('');
-  const [isEditingBuddy, setIsEditingBuddy] = React.useState(false);
-  const [timeLeft, setTimeLeft] = React.useState(25 * 60);
-  const [isRunning, setIsRunning] = React.useState(false);
-  const [sessionSecondsPassed, setSessionSecondsPassed] = React.useState(0);
-  const [activeSound, setActiveSound] = React.useState(null);
-  const audioRef = React.useRef(null);
-
-  React.useEffect(() => {
-    const saved = localStorage.getItem('study_buddy');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setSelectedBuddy(parsed.buddy);
-        setBuddyCustomName(parsed.customName);
-      } catch (e) {
-        setIsEditingBuddy(true);
-      }
-    } else {
-      setIsEditingBuddy(true);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    let timer = null;
-    if (isRunning && timeLeft > 0) {
-      timer = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-        setSessionSecondsPassed(prev => prev + 1);
-      }, 1000);
-    } else if (timeLeft === 0 && isRunning) {
-      handleCompleteSession();
-    }
-    return () => clearInterval(timer);
-  }, [isRunning, timeLeft]);
-
-  const soundTracks = {
-    rain: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=soft-rain-ambient-111154.mp3',
-    lofi: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-study-112191.mp3'
-  };
-
-  const toggleSound = (type) => {
-    if (activeSound === type) {
-      if (audioRef.current) audioRef.current.pause();
-      setActiveSound(null);
-    } else {
-      setActiveSound(type);
-      if (audioRef.current) {
-        audioRef.current.src = soundTracks[type];
-        audioRef.current.play().catch(() => {});
-      }
-    }
-  };
-
-  const handleSaveBuddy = (buddy) => {
-    const name = buddyCustomName.trim() || buddy.name;
-    setSelectedBuddy(buddy);
-    setBuddyCustomName(name);
-    localStorage.setItem('study_buddy', JSON.stringify({ buddy, customName: name }));
-    setIsEditingBuddy(false);
-  };
-
-  const handleReset = () => {
-    setIsRunning(false);
-    setTimeLeft(25 * 60);
-    setSessionSecondsPassed(0);
-  };
-
-  const handleCompleteSession = async () => {
-    setIsRunning(false);
-    if (audioRef.current) audioRef.current.pause();
-    const minutesStudied = Math.round(sessionSecondsPassed / 60);
-    if (minutesStudied >= 1) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from('study_sessions').insert([{
-            user_id: user.id,
-            duration_minutes: minutesStudied,
-            buddy_id: selectedBuddy?.id
-          }]);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-      alert(`عالی بود! ${minutesStudied} دقیقه تمرکز عمیق ثبت شد ✨`);
-    }
-    handleReset();
-  };
-
-  const formatTime = (secs) => {
-    const m = Math.floor(secs / 60).toString().padStart(2, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
-
-  if (isEditingBuddy || !selectedBuddy) {
-    return (
-      <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-indigo-100 max-w-xl mx-auto my-6 text-right">
-        <h3 className="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
-          <span>✨</span> هم‌مسیر مطالعه‌ات را انتخاب کن
-        </h3>
-        <p className="text-xs text-slate-400 mb-4">این همراه در تمام مراحل تمرکز کنار تو خواهد بود.</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-          {COMPANIONS.map((b) => (
-            <div
-              key={b.id}
-              onClick={() => setSelectedBuddy(b)}
-              className={`cursor-pointer p-3 rounded-2xl border text-center transition-all ${
-                selectedBuddy?.id === b.id 
-                  ? 'border-indigo-500 bg-indigo-50/70 shadow-sm scale-105' 
-                  : 'border-slate-100 bg-white/60 hover:border-indigo-200'
-              }`}
-            >
-              <div className="text-3xl mb-1">{b.emoji}</div>
-              <div className="font-bold text-xs text-slate-800">{b.name}</div>
-              <div className="text-[10px] text-slate-400 mt-0.5">{b.title}</div>
-            </div>
-          ))}
-        </div>
-        {selectedBuddy && (
-          <div className="space-y-3">
-            <input 
-              type="text"
-              placeholder={`نام دلخواه (پیش‌فرض: ${selectedBuddy.name})`}
-              value={buddyCustomName}
-              onChange={(e) => setBuddyCustomName(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-right"
-            />
-            <button 
-              onClick={() => handleSaveBuddy(selectedBuddy)}
-              className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-indigo-700"
-            >
-              تأیید و شروع تمرکز با {buddyCustomName || selectedBuddy.name}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-indigo-100 max-w-md mx-auto my-6 text-center">
-      <div className="flex justify-between items-center mb-4">
-        <button 
-          onClick={() => setIsEditingBuddy(true)}
-          className="text-[11px] text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-full hover:bg-indigo-100"
-        >
-          تغییر همراه
-        </button>
-        <span className="text-xs font-bold text-slate-700">همراه: {buddyCustomName}</span>
-      </div>
-
-      <div className="my-3 flex flex-col items-center">
-        <div className={`text-6xl p-4 rounded-full bg-indigo-50/60 border border-indigo-100 transition-transform duration-500 ${
-          isRunning ? 'scale-110 animate-pulse' : ''
-        }`}>
-          {selectedBuddy.emoji}
-        </div>
-        <div className="mt-2 text-xs text-slate-500">
-          {isRunning ? `🤫 ${buddyCustomName} داره کنارت درس می‌خونه...` : `☕ ${buddyCustomName} منتظر شروع توئه`}
-        </div>
-      </div>
-
-      <div className="text-4xl font-black text-slate-800 tracking-wider my-3 font-mono">
-        {formatTime(timeLeft)}
-      </div>
-
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <button
-          onClick={() => setIsRunning(!isRunning)}
-          className={`px-6 py-2 rounded-xl text-xs font-bold text-white shadow transition-all ${
-            isRunning ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'
-          }`}
-        >
-          {isRunning ? 'توقف ⏸' : 'شروع تمرکز ▶'}
-        </button>
-
-        {sessionSecondsPassed > 30 && (
-          <button
-            onClick={handleCompleteSession}
-            className="px-3 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-xs font-bold hover:bg-emerald-100"
-          >
-            ثبت زمان 💾
-          </button>
-        )}
-
-        <button
-          onClick={handleReset}
-          className="p-2 text-slate-400 hover:text-slate-600 rounded-xl border border-slate-100 text-xs"
-        >
-          🔄
-        </button>
-      </div>
-
-      <div className="border-t border-slate-100 pt-3 flex items-center justify-center gap-2">
-        <span className="text-[10px] text-slate-400">صداهای آرامش‌بخش:</span>
-        <button
-          onClick={() => toggleSound('rain')}
-          className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
-            activeSound === 'rain' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-600'
-          }`}
-        >
-          🌧 باران
-        </button>
-        <button
-          onClick={() => toggleSound('lofi')}
-          className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
-            activeSound === 'lofi' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-600'
-          }`}
-        >
-          🎧 لوفای
-        </button>
-        <audio ref={audioRef} loop />
-      </div>
-    </div>
-  );
-}
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
 </body>
