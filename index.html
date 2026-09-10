@@ -3,15 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#4f46e5">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#6366f1">
   <title>Learning OS — سیستم‌عامل یادگیری</title>
   
   <link rel="icon" type="image/jpeg" href="icon.jpg">
   <link rel="apple-touch-icon" href="icon.jpg">
   <link rel="manifest" href="./manifest.json">
-  <meta name="apple-mobile-web-app-title" content="Learning OS">
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js');
@@ -43,35 +40,58 @@
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
 
-    /* انیمیشن رقص شاخه و برگ‌های زنده دور صفحه */
-    @keyframes vineBreathe {
-      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.85; }
-      50% { transform: scale(1.025) rotate(0.8deg); opacity: 0.95; }
+    /* انیمیشن پلک زدن خرگوش */
+    @keyframes blinkEyes {
+      0%, 90%, 100% { transform: scaleY(1); }
+      95% { transform: scaleY(0.1); }
     }
-    .vine-animation {
-      animation: vineBreathe 6s ease-in-out infinite;
-      transform-origin: top right;
-    }
-
-    /* شناوری المان‌های کمرنگ پس‌زمینه */
-    @keyframes floatBG {
-      0%, 100% { transform: translateY(0px) rotate(0deg); }
-      50% { transform: translateY(-15px) rotate(2deg); }
-    }
-    .floating-bg {
-      animation: floatBG 10s ease-in-out infinite;
+    .bunny-blink {
+      transform-origin: center;
+      animation: blinkEyes 4s infinite;
     }
 
-    /* شیشه مات مدرن */
-    .glass-card {
-      background: rgba(255, 255, 255, 0.78);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.7);
+    /* تکان خوردن ملایم گوش‌ها */
+    @keyframes earWiggle {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(3deg); }
+    }
+    .bunny-ear-left {
+      transform-origin: bottom center;
+      animation: earWiggle 3.5s ease-in-out infinite;
+    }
+    .bunny-ear-right {
+      transform-origin: bottom center;
+      animation: earWiggle 3.5s ease-in-out infinite reverse;
+    }
+
+    /* دست خرگوش در حال نوشتن */
+    @keyframes rabbitWriting {
+      0%, 100% { transform: translate(0, 0); }
+      50% { transform: translate(-2px, 3px); }
+    }
+    .bunny-hand-write {
+      animation: rabbitWriting 0.6s infinite ease-in-out;
+    }
+
+    /* ورق خوردن نرم کاغذ کتاب */
+    @keyframes bookPageTurn {
+      0% { transform: rotateY(0deg); }
+      50% { transform: rotateY(-180deg); }
+      100% { transform: rotateY(-180deg); }
+    }
+    .vector-page {
+      transform-origin: left center;
+      animation: bookPageTurn 3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    }
+
+    /* باران شیشه‌ای */
+    .rain-glass {
+      background: radial-gradient(circle at 50% 20%, rgba(99, 102, 241, 0.15), transparent 70%),
+                  linear-gradient(to bottom, #1e1b4b, #0f172a);
     }
   </style>
 </head>
-<body class="text-slate-900 antialiased selection:bg-indigo-100 selection:text-indigo-900 overflow-x-hidden min-h-screen">
+<body class="text-slate-900 antialiased selection:bg-indigo-100 selection:text-indigo-900 min-h-screen relative overflow-x-hidden">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -103,139 +123,192 @@
       }
     }
 
-    // صحنه‌های لوفای برای اتاق تمرکز
-    const SCENES = [
-      {
-        id: 'rainy_cafe',
-        title: 'کافه دنج بارانی',
-        icon: '☕',
-        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-coffee-cup-and-rain-drops-on-window-42999-large.mp4',
-        sound: 'https://actions.google.com/sounds/v1/weather/rain_heavy.ogg',
-        characterGif: 'https://media.giphy.com/media/LmNwrBhejkK9EFP504/giphy.gif'
-      },
-      {
-        id: 'lofi_night',
-        title: 'اتاق مطالعه شبانه',
-        icon: '🌙',
-        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-tree-branches-in-the-breeze-1188-large.mp4',
-        sound: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-study-112191.mp3',
-        characterGif: 'https://media.giphy.com/media/f31DK1KpGCEva/giphy.gif'
-      },
-      {
-        id: 'cozy_forest',
-        title: 'جنگل و آب روان',
-        icon: '🌿',
-        videoUrl: 'https://assets.mixkit.co/videos/preview/mixkit-small-stream-in-the-forest-42898-large.mp4',
-        sound: 'https://actions.google.com/sounds/v1/water/stream_water.ogg',
-        characterGif: 'https://media.giphy.com/media/mGcNjsfWAjY5AEZNw6/giphy.gif'
-      }
-    ];
-
-    // کامپوننت پس‌زمینه زنده و داینامیک کل اپلیکیشن
-    function DynamicAtmosphere({ currentTab }) {
+    // شاخه پیچک و برگ‌های زنده در حاشیه صفحه که با مطالعه جوانه می‌زنند
+    function LivingVineFrame({ studyMinutes = 0 }) {
+      const growthLevel = Math.min(100, Math.max(20, studyMinutes * 2));
       return (
-        <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden transition-all duration-1000">
-          {/* گرادیان پایه بر اساس تب */}
-          <div className={`absolute inset-0 transition-colors duration-1000 ${
-            currentTab === 'focus' 
-              ? 'bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950' 
-              : currentTab === 'reports'
-              ? 'bg-gradient-to-br from-[#F5F8FF] via-[#EEF2FF] to-[#FAF5FF]'
-              : 'bg-gradient-to-br from-[#FAF8FE] via-[#F3F4FD] to-[#FCF8F9]'
-          }`} />
+        <div className="fixed inset-0 pointer-events-none z-10 overflow-hidden">
+          {/* شاخه پیچک بالا راست */}
+          <svg className="absolute top-0 right-0 w-64 sm:w-80 h-64 sm:h-80 opacity-80" viewBox="0 0 300 300" fill="none">
+            <path 
+              d="M300,0 C220,40 170,110 150,190 C135,240 90,270 10,290" 
+              stroke="#15803d" 
+              strokeWidth="5" 
+              strokeLinecap="round" 
+              strokeDasharray="400"
+              strokeDashoffset={400 - (400 * growthLevel) / 100}
+              className="transition-all duration-1000"
+            />
+            {/* برگ‌های شاخه که گام‌به‌گام باز می‌شوند */}
+            <g className="transition-all duration-700" opacity={growthLevel > 30 ? 1 : 0}>
+              <path d="M210,80 C200,60 220,45 240,55 C240,75 225,90 210,80 Z" fill="#4ade80" />
+              <path d="M165,150 C150,140 155,120 175,125 C185,140 180,155 165,150 Z" fill="#22c55e" />
+            </g>
+            <g className="transition-all duration-700" opacity={growthLevel > 60 ? 1 : 0}>
+              <path d="M140,215 C125,205 135,185 155,193 C160,210 150,223 140,215 Z" fill="#86efac" />
+              <circle cx="166" cy="148" r="4" fill="#fb7185" />
+            </g>
+            <g className="transition-all duration-700" opacity={growthLevel > 80 ? 1 : 0}>
+              <path d="M70,270 C55,265 60,245 80,250 C90,265 85,277 70,270 Z" fill="#16a34a" />
+              <circle cx="140" cy="214" r="5" fill="#f43f5e" />
+            </g>
+          </svg>
 
-          {/* شاخه پیچک و برگ‌های سبز زنده در گوشه بالای صفحه */}
-          <div className="absolute -top-6 -right-6 w-72 sm:w-96 h-72 sm:h-96 vine-animation opacity-80 pointer-events-none">
-            <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-              <path d="M400,0 C320,50 260,120 230,220 C210,290 150,340 50,380" stroke="#86efac" strokeWidth="4" strokeLinecap="round" opacity="0.6"/>
-              <path d="M400,20 C340,80 300,160 270,250 C250,310 180,350 90,390" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" opacity="0.4"/>
-              
-              {/* برگ‌های سبز لطیف */}
-              <path d="M280,100 C270,80 290,65 310,75 C310,95 295,110 280,100 Z" fill="#86efac" opacity="0.75"/>
-              <path d="M230,190 C215,180 220,160 240,165 C250,180 245,195 230,190 Z" fill="#4ade80" opacity="0.8"/>
-              <path d="M190,260 C175,250 185,230 205,238 C210,255 200,268 190,260 Z" fill="#86efac" opacity="0.7"/>
-              <path d="M110,335 C95,330 100,310 120,315 C130,330 125,342 110,335 Z" fill="#22c55e" opacity="0.65"/>
-              
-              {/* شکوفه صورتی ملایم */}
-              <circle cx="232" cy="188" r="5" fill="#f472b6" opacity="0.85"/>
-              <circle cx="192" cy="258" r="4" fill="#f472b6" opacity="0.75"/>
-            </svg>
-          </div>
-
-          {/* حالت خاص تب گزارش‌ها: اعداد و چارت‌های هولوگرافیک محو شناور */}
-          {currentTab === 'reports' && (
-            <div className="absolute inset-0 floating-bg opacity-[0.06] flex items-center justify-around select-none">
-              <span className="text-9xl font-black font-mono text-indigo-900">85%</span>
-              <span className="text-8xl font-black font-mono text-indigo-900">∑</span>
-              <span className="text-9xl font-black font-mono text-indigo-900">📈</span>
-            </div>
-          )}
-
-          {/* حالت خاص تب تمرکز: ستاره‌ها و ذرات درخشان ملایم */}
-          {currentTab === 'focus' && (
-            <div className="absolute inset-0">
-              <div className="absolute top-1/4 left-1/4 w-1.5 h-1.5 bg-amber-200 rounded-full animate-ping opacity-60"></div>
-              <div className="absolute top-1/3 right-1/3 w-2 h-2 bg-indigo-300 rounded-full animate-pulse opacity-40"></div>
-              <div className="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 bg-purple-200 rounded-full animate-ping opacity-50"></div>
-            </div>
-          )}
-
-          {/* حالت تب داشبورد و یادگیری: حباب‌های نورانی پاستلی */}
-          {(currentTab === 'dashboard' || currentTab === 'paths' || currentTab === 'leitner') && (
-            <div className="absolute inset-0 floating-bg pointer-events-none">
-              <div className="absolute top-20 left-10 w-64 h-64 rounded-full bg-purple-200/25 blur-3xl"></div>
-              <div className="absolute bottom-20 right-10 w-80 h-80 rounded-full bg-emerald-100/35 blur-3xl"></div>
-              <div className="absolute top-1/2 left-1/2 w-96 h-96 rounded-full bg-indigo-100/30 blur-3xl"></div>
-            </div>
-          )}
+          {/* شاخه لطیف پایین چپ */}
+          <svg className="absolute bottom-0 left-0 w-48 sm:w-64 h-48 sm:h-64 opacity-60 rotate-180" viewBox="0 0 300 300" fill="none">
+            <path d="M300,0 C230,50 190,130 160,220" stroke="#16a34a" strokeWidth="4" strokeLinecap="round"/>
+            <path d="M220,80 C210,60 230,45 250,55 C250,75 235,90 220,80 Z" fill="#86efac" />
+            <path d="M175,170 C160,160 165,140 185,145 C195,160 190,175 175,170 Z" fill="#4ade80" />
+          </svg>
         </div>
       );
     }
 
-    // اتاق تمرکز زنده سینمایی با کنترل صدا و نوتیفیکیشن
+    // کاراکتر وکتور خرگوش مطالعه (سبک اصیل Study Bunny)
+    function StudyBunnyCharacter({ isStudying }) {
+      return (
+        <div className="relative flex flex-col items-center justify-center select-none">
+          <svg width="180" height="190" viewBox="0 0 200 210" fill="none" className="drop-shadow-2xl">
+            {/* گوش چپ */}
+            <g className="bunny-ear-left">
+              <ellipse cx="65" cy="50" rx="14" ry="45" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="3" />
+              <ellipse cx="65" cy="52" rx="7" ry="32" fill="#fbcfe8" />
+            </g>
+
+            {/* گوش راست */}
+            <g className="bunny-ear-right">
+              <ellipse cx="135" cy="50" rx="14" ry="45" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="3" />
+              <ellipse cx="135" cy="52" rx="7" ry="32" fill="#fbcfe8" />
+            </g>
+
+            {/* بدن خرگوش */}
+            <ellipse cx="100" cy="155" rx="55" ry="45" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="3" />
+            {/* بافت هودی/لباس خرگوش */}
+            <path d="M60,150 Q100,165 140,150 Q135,190 100,195 Q65,190 60,150 Z" fill="#818cf8" opacity="0.9" />
+
+            {/* سر خرگوش */}
+            <circle cx="100" cy="105" r="46" fill="#ffffff" stroke="#cbd5e1" strokeWidth="3" />
+
+            {/* گونه‌های گل‌انداخته صورتی */}
+            <ellipse cx="73" cy="118" rx="7" ry="4" fill="#f472b6" opacity="0.5" />
+            <ellipse cx="127" cy="118" rx="7" ry="4" fill="#f472b6" opacity="0.5" />
+
+            {/* چشم‌ها با قابلیت پلک‌زدن */}
+            <g className="bunny-blink">
+              {isStudying ? (
+                // چشم‌های متمرکز و خوشحال حین مطالعه
+                <g stroke="#1e293b" strokeWidth="3" strokeLinecap="round" fill="none">
+                  <path d="M74,106 Q82,99 90,106" />
+                  <path d="M110,106 Q118,99 126,106" />
+                </g>
+              ) : (
+                // چشم‌های درشت و کنجکاو خرگوش
+                <g fill="#0f172a">
+                  <circle cx="82" cy="105" r="5" />
+                  <circle cx="80" cy="103" r="1.5" fill="#ffffff" />
+                  <circle cx="118" cy="105" r="5" />
+                  <circle cx="116" cy="103" r="1.5" fill="#ffffff" />
+                </g>
+              )}
+            </g>
+
+            {/* عینک مطالعه که حین درس خواندن روی صورت قرار می‌گیرد */}
+            {isStudying && (
+              <g stroke="#d97706" strokeWidth="2.5" fill="none">
+                <circle cx="82" cy="105" r="12" fill="rgba(255,255,255,0.3)" />
+                <circle cx="118" cy="105" r="12" fill="rgba(255,255,255,0.3)" />
+                <path d="M94,105 L106,105" />
+              </g>
+            )}
+
+            {/* بینی و دهان ظریف خرگوش */}
+            <polygon points="100,114 97,118 103,118" fill="#fb7185" />
+            <path d="M97,119 Q100,123 103,119" stroke="#94a3b8" strokeWidth="2" fill="none" />
+
+            {/* دست خرگوش در حال نوشتن با مداد */}
+            {isStudying ? (
+              <g className="bunny-hand-write">
+                <ellipse cx="125" cy="160" rx="9" ry="7" fill="#ffffff" stroke="#cbd5e1" strokeWidth="2" />
+                <rect x="122" y="142" width="4" height="20" rx="2" transform="rotate(30 122 142)" fill="#f59e0b" />
+              </g>
+            ) : (
+              <g>
+                <ellipse cx="75" cy="160" rx="8" ry="6" fill="#ffffff" stroke="#cbd5e1" strokeWidth="2" />
+                <ellipse cx="125" cy="160" rx="8" ry="6" fill="#ffffff" stroke="#cbd5e1" strokeWidth="2" />
+              </g>
+            )}
+          </svg>
+
+          {/* میز چوبی و دفترچه ورق‌خور */}
+          <div className="w-64 sm:w-72 h-8 bg-gradient-to-r from-amber-700 via-amber-800 to-amber-950 rounded-2xl -mt-5 shadow-2xl flex items-center justify-center relative border-t-2 border-amber-500/40">
+            {/* دفترچه و کاغذهای باز روی میز */}
+            <div className="absolute -top-4 flex items-center">
+              <div className="w-11 h-7 bg-amber-50 rounded-l border-r border-slate-300 shadow flex flex-col justify-center px-1 space-y-1">
+                <div className="w-7 h-0.5 bg-slate-300"></div>
+                <div className="w-5 h-0.5 bg-slate-300"></div>
+              </div>
+
+              {/* برگه متحرک که حین مطالعه ورق می‌خورد */}
+              <div className={`w-11 h-7 bg-white rounded-r shadow flex flex-col justify-center px-1 space-y-1 ${
+                isStudying ? 'vector-page' : ''
+              }`}>
+                <div className="w-6 h-0.5 bg-indigo-200"></div>
+                <div className="w-4 h-0.5 bg-indigo-200"></div>
+              </div>
+            </div>
+
+            {/* فنجان چای با بخار گرم */}
+            <div className="absolute right-4 -top-3.5 text-base relative">
+              <span>🍵</span>
+              {isStudying && (
+                <span className="absolute -top-3 left-1 text-[10px] opacity-70 animate-bounce">♨</span>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // اتاق تمرکز کامل با محیط دنج، صداهای طبیعی بدون فیلتر و تایمر
     function FocusRoomView({ onSessionSaved }) {
-      const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
       const [timeLeft, setTimeLeft] = useState(25 * 60);
-      const [selectedDuration, setSelectedDuration] = useState(25);
+      const [selectedMinutes, setSelectedMinutes] = useState(25);
       const [isRunning, setIsRunning] = useState(false);
       const [sessionSecondsPassed, setSessionSecondsPassed] = useState(0);
-      const [volume, setVolume] = useState(0.6);
-      const [isMuted, setIsMuted] = useState(false);
-      const [notificationPermission, setNotificationPermission] = useState(
-        typeof window !== 'undefined' && 'Notification' in window ? Notification.permission : 'default'
-      );
+      const [totalTodayMinutes, setTotalTodayMinutes] = useState(20);
+      const [activeSound, setActiveSound] = useState('rain');
+      const [volume, setVolume] = useState(0.5);
 
       const audioRef = useRef(null);
-      const activeScene = SCENES[currentSceneIndex];
 
-      const sendNotification = (title, body) => {
-        if (!('Notification' in window)) return;
-        if (Notification.permission === 'granted') {
-          try {
-            new Notification(title, { body, icon: 'icon.jpg' });
-          } catch (e) {}
-        }
+      // فایل‌های صوتی عمومی و سبک طبیعی
+      const SOUND_TRACKS = {
+        rain: { title: 'باران دنج پشت پنجره', icon: '🌧️', url: 'https://actions.google.com/sounds/v1/weather/rain_heavy.ogg' },
+        stream: { title: 'رودخانه و آب جاری', icon: '🌊', url: 'https://actions.google.com/sounds/v1/water/stream_water.ogg' },
+        wind: { title: 'نویز سفید برگ‌ها', icon: '🍃', url: 'https://actions.google.com/sounds/v1/weather/light_wind_trees.ogg' },
+        cafe: { title: 'کافه خلوت', icon: '☕', url: 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg' }
       };
 
-      const requestNotificationPermission = async () => {
-        if (!('Notification' in window)) return;
-        const perm = await Notification.requestPermission();
-        setNotificationPermission(perm);
-        if (perm === 'granted') {
-          sendNotification('🔔 اعلان تمرکز فعال شد!', 'هنگام خروج از صفحه، اخطار بازگشت دریافت خواهید کرد.');
+      // مدیریت اجرای صداها
+      useEffect(() => {
+        if (audioRef.current) {
+          if (isRunning && activeSound) {
+            audioRef.current.src = SOUND_TRACKS[activeSound].url;
+            audioRef.current.volume = volume;
+            audioRef.current.play().catch(() => {});
+          } else {
+            audioRef.current.pause();
+          }
         }
-      };
+      }, [isRunning, activeSound]);
 
       useEffect(() => {
-        const handleVisibility = () => {
-          if (document.hidden && isRunning) {
-            sendNotification('👀 کجا رفتی قهوه‌ت سرد شد!', 'جلسه مطالعه تو در حال سپری شدنه. برگرد به میز مطالعه ☕');
-          }
-        };
-        document.addEventListener('visibilitychange', handleVisibility);
-        return () => document.removeEventListener('visibilitychange', handleVisibility);
-      }, [isRunning]);
+        if (audioRef.current) {
+          audioRef.current.volume = volume;
+        }
+      }, [volume]);
 
+      // تایمر دقیق
       useEffect(() => {
         let interval = null;
         if (isRunning && timeLeft > 0) {
@@ -244,46 +317,29 @@
             setSessionSecondsPassed(s => s + 1);
           }, 1000);
         } else if (timeLeft === 0 && isRunning) {
-          handleComplete();
+          handleCompleteSession();
         }
         return () => clearInterval(interval);
       }, [isRunning, timeLeft]);
 
-      useEffect(() => {
-        if (audioRef.current) {
-          audioRef.current.src = activeScene.sound;
-          audioRef.current.volume = isMuted ? 0 : volume;
-          if (isRunning && !isMuted) {
-            audioRef.current.play().catch(() => {});
-          } else {
-            audioRef.current.pause();
-          }
-        }
-      }, [activeScene, isRunning, isMuted]);
-
-      useEffect(() => {
-        if (audioRef.current) {
-          audioRef.current.volume = isMuted ? 0 : volume;
-        }
-      }, [volume, isMuted]);
-
-      const handleSetTime = (mins) => {
+      const handleSetDuration = (m) => {
         if (isRunning) return;
-        setSelectedDuration(mins);
-        setTimeLeft(mins * 60);
+        setSelectedMinutes(m);
+        setTimeLeft(m * 60);
         setSessionSecondsPassed(0);
       };
 
       const handleReset = () => {
         setIsRunning(false);
-        setTimeLeft(selectedDuration * 60);
+        setTimeLeft(selectedMinutes * 60);
         setSessionSecondsPassed(0);
       };
 
-      const handleComplete = async () => {
+      const handleCompleteSession = async () => {
         setIsRunning(false);
         const mins = Math.max(1, Math.round(sessionSecondsPassed / 60));
-        
+        setTotalTodayMinutes(prev => prev + mins);
+
         await db.sessions.add({
           id: 'sess-' + Date.now(),
           durationMinutes: mins,
@@ -302,8 +358,7 @@
           } catch (e) {}
         }
 
-        sendNotification('🎉 خسته نباشی قهرمان!', `${mins} دقیقه تمرکز عمیق پیوسته را با موفقیت تمام کردی.`);
-        alert(`جلسه تمام شد! ${mins} دقیقه تمرکز عالی ثبت گردید ✨`);
+        alert(`آفرین! ${mins} دقیقه تمرکز عمیق با موفقیت ثبت شد و شاخه‌های اتاقت رشد کردند 🌱`);
         if (onSessionSaved) onSessionSaved();
         handleReset();
       };
@@ -315,154 +370,127 @@
       };
 
       return (
-        <div className="space-y-6 max-w-3xl mx-auto">
-          <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-slate-800 h-[480px] sm:h-[540px] flex flex-col justify-between p-6 select-none">
-            <video 
-              key={activeScene.videoUrl} 
-              autoPlay 
-              loop 
-              muted 
-              playsInline 
-              className="absolute inset-0 w-full h-full object-cover z-0 filter brightness-[0.45] contrast-110"
-            >
-              <source src={activeScene.videoUrl} type="video/mp4" />
-            </video>
-
-            <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 pointer-events-none transition-opacity duration-1000 z-0 ${
-              isRunning ? 'opacity-80' : 'opacity-90'
+        <div className="space-y-6 max-w-2xl mx-auto">
+          {/* محفظه اتمسفریک اتاق مطالعه بانی */}
+          <div className="rain-glass rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden border border-indigo-500/30">
+            
+            {/* نور گرم چراغ مطالعه که با شروع تمرکز روشن می‌شود */}
+            <div className={`absolute top-0 right-1/4 w-80 h-80 rounded-full blur-3xl pointer-events-none transition-all duration-1000 ${
+              isRunning ? 'bg-amber-300/20 scale-125' : 'bg-indigo-500/10 scale-90'
             }`}></div>
 
             <div className="relative z-10 flex items-center justify-between">
-              <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10">
-                {SCENES.map((scene, idx) => (
+              <span className="text-xs bg-white/10 px-3 py-1.5 rounded-full border border-white/15 font-bold flex items-center gap-1.5">
+                <span>🌱</span> رشد شاخه‌ها: <b>{totalTodayMinutes} دقیقه</b>
+              </span>
+              <span className="text-xs text-indigo-200">اتاق تمرکز و مطالعه زنده</span>
+            </div>
+
+            {/* کاراکتر وکتور تعاملی و میز مطالعه */}
+            <div className="py-6 flex flex-col items-center justify-center relative z-10">
+              <StudyBunnyCharacter isStudying={isRunning} />
+              <div className="mt-4 text-xs font-bold text-indigo-200 backdrop-blur-md bg-black/30 px-4 py-1.5 rounded-full border border-white/10">
+                {isRunning ? '🤫 بانی همراه تو غرق نوشتن و مطالعه است...' : '☕ منتظر توست؛ شروع را بزن تا درس خواندن را شروع کند!'}
+              </div>
+            </div>
+
+            {/* انتخاب مدت جلسه */}
+            {!isRunning && (
+              <div className="flex items-center justify-center gap-2 mb-3 relative z-10">
+                {[15, 25, 45, 60].map(m => (
                   <button
-                    key={scene.id}
-                    onClick={() => setCurrentSceneIndex(idx)}
-                    className={`text-xs px-2.5 py-1 rounded-xl font-bold transition flex items-center gap-1.5 ${
-                      currentSceneIndex === idx ? 'bg-white/25 text-white' : 'text-slate-300 hover:text-white'
+                    key={m}
+                    onClick={() => handleSetDuration(m)}
+                    className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition ${
+                      selectedMinutes === m ? 'bg-indigo-500 text-white shadow-md' : 'bg-white/10 text-slate-300 hover:bg-white/20'
                     }`}
                   >
-                    <span>{scene.icon}</span>
-                    <span className="hidden sm:inline">{scene.title}</span>
+                    {m} دقیقه
                   </button>
                 ))}
               </div>
+            )}
 
-              {notificationPermission !== 'granted' && (
-                <button
-                  onClick={requestNotificationPermission}
-                  className="bg-amber-500/20 text-amber-200 border border-amber-400/30 px-3 py-1.5 rounded-xl text-xs font-bold backdrop-blur-md hover:bg-amber-500/30 transition flex items-center gap-1"
-                >
-                  <span>🔔</span> فعال‌سازی اخطار خروج
-                </button>
-              )}
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center justify-center my-auto">
-              <div className="relative">
-                <img 
-                  src={activeScene.characterGif} 
-                  alt="Study Companion"
-                  className={`w-36 h-36 sm:w-44 sm:h-44 object-contain rounded-2xl drop-shadow-[0_15px_15px_rgba(0,0,0,0.6)] transition-all duration-700 ${
-                    isRunning ? 'scale-105 filter brightness-105' : 'opacity-90 grayscale-[20%]'
-                  }`}
-                />
-                {isRunning && (
-                  <div className="absolute -top-3 right-2 w-3 h-3 bg-emerald-400 rounded-full animate-ping"></div>
-                )}
-              </div>
-              <p className="text-white/85 text-xs font-bold mt-2 backdrop-blur-md bg-black/35 px-4 py-1.5 rounded-full border border-white/15">
-                {isRunning ? '🤫 در حال مطالعه عمیق و بدون حواس‌پرتی...' : '☕ فضا آماده‌ست؛ وقتی شروع کنی ریتم زنده میشه'}
-              </p>
-            </div>
-
-            <div className="relative z-10 bg-black/45 backdrop-blur-xl border border-white/15 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-              {!isRunning ? (
-                <div className="flex items-center gap-1.5">
-                  {[15, 25, 45, 60].map(m => (
-                    <button
-                      key={m}
-                      onClick={() => handleSetTime(m)}
-                      className={`text-xs px-3 py-1.5 rounded-xl font-bold transition ${
-                        selectedDuration === m ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30' : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                      }`}
-                    >
-                      {m}m
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-indigo-300 font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                  جلسه {selectedDuration} دقیقه‌ای
-                </div>
-              )}
-
-              <div className="text-4xl sm:text-5xl font-black font-mono tracking-widest text-white drop-shadow-md">
+            {/* ساعت دیجیتال */}
+            <div className="text-center my-3 relative z-10">
+              <div className="text-5xl sm:text-6xl font-black font-mono tracking-widest text-white drop-shadow-md">
                 {formatTime(timeLeft)}
               </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsRunning(!isRunning)}
-                  className={`px-6 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg transition-all ${
-                    isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30'
-                  }`}
-                >
-                  {isRunning ? 'مکث ⏸' : 'شروع تمرکز ▶'}
-                </button>
-
-                {sessionSecondsPassed > 10 && (
-                  <button
-                    onClick={handleComplete}
-                    className="p-2.5 bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 rounded-xl hover:bg-emerald-500/40 text-xs"
-                    title="ثبت موفق جلسه"
-                  >
-                    💾
-                  </button>
-                )}
-
-                <button
-                  onClick={handleReset}
-                  className="p-2.5 bg-white/10 text-white/70 hover:text-white rounded-xl border border-white/10 text-xs"
-                  title="تنظیم مجدد"
-                >
-                  🔄
-                </button>
-
-                <button
-                  onClick={() => setIsMuted(!isMuted)}
-                  className={`p-2.5 rounded-xl border text-xs transition ${
-                    isMuted ? 'bg-rose-500/20 text-rose-300 border-rose-400/30' : 'bg-white/10 text-white border-white/10'
-                  }`}
-                  title="قطع/وصل صدا"
-                >
-                  {isMuted ? '🔇' : '🔊'}
-                </button>
-              </div>
             </div>
 
-            <audio ref={audioRef} loop />
+            {/* دکمه‌های کنترل */}
+            <div className="flex items-center justify-center gap-3 relative z-10">
+              <button
+                onClick={() => setIsRunning(!isRunning)}
+                className={`px-8 py-3 rounded-2xl text-xs font-bold text-white shadow-xl transition-all ${
+                  isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/40'
+                }`}
+              >
+                {isRunning ? 'مکث مطالعه ⏸' : 'شروع تمرکز با بانی ▶'}
+              </button>
+
+              {sessionSecondsPassed > 10 && (
+                <button
+                  onClick={handleCompleteSession}
+                  className="px-4 py-3 bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 rounded-2xl text-xs font-bold hover:bg-emerald-500/40 transition"
+                >
+                  ثبت جلسه 💾
+                </button>
+              )}
+
+              <button
+                onClick={handleReset}
+                className="p-3 bg-white/10 hover:bg-white/20 text-white/80 rounded-2xl border border-white/10 text-xs"
+                title="تنظیم مجدد"
+              >
+                🔄
+              </button>
+            </div>
           </div>
 
-          <div className="glass-card p-4 rounded-2xl shadow-sm flex items-center justify-between gap-4 text-xs">
-            <span className="font-bold text-slate-700 flex items-center gap-1.5">
-              <span>🎧</span> بلندی صدای محیط:
-            </span>
+          {/* صداهای پس‌زمینه زنده */}
+          <div className="bg-white/85 backdrop-blur-md p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                <span>🎧</span> پخش همزمان صدای آرامش‌بخش:
+              </span>
+              <span className="text-slate-400 font-medium">ولوم: {Math.round(volume * 100)}%</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {Object.entries(SOUND_TRACKS).map(([key, item]) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveSound(key === activeSound ? null : key)}
+                  className={`p-3 rounded-2xl border text-center transition-all ${
+                    activeSound === key 
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="text-xl mb-1">{item.icon}</div>
+                  <div className="text-[11px] font-bold">{item.title}</div>
+                </button>
+              ))}
+            </div>
+
             <input 
               type="range" 
               min="0" 
               max="1" 
               step="0.05"
               value={volume} 
-              onChange={e => { setVolume(parseFloat(e.target.value)); setIsMuted(false); }}
-              className="w-48 accent-indigo-600 cursor-pointer"
+              onChange={e => setVolume(parseFloat(e.target.value))}
+              className="w-full accent-indigo-600 cursor-pointer pt-1"
             />
           </div>
+
+          <audio ref={audioRef} loop />
         </div>
       );
     }
 
+    // بدنه اصلی برنامه
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
       const [checkingAuth, setCheckingAuth] = useState(true);
@@ -485,8 +513,6 @@
       const [topics, setTopics] = useState([]);
       const [tasks, setTasks] = useState([]);
       const [sessions, setSessions] = useState([]);
-      const [quizzes, setQuizzes] = useState([]);
-      const [flashcards, setFlashcards] = useState([]);
       const [goals, setGoals] = useState([]);
       const [profileData, setProfileData] = useState({ fullName: '', avatar: '', age: '', field: '', interests: '' });
       const [refreshKey, setRefreshKey] = useState(0);
@@ -499,13 +525,9 @@
         return profileData.avatar || currentUser?.user_metadata?.avatar || 'icon.jpg';
       }, [profileData, currentUser]);
 
-      const DAILY_QUOTES = useMemo(() => [
-        `هر قدم کوچیکی که امروز برمی‌داری، پلی به سمت اهداف بزرگته ${displayName} جان 🌱`,
-        "پیوستگی و ریتم آرام، یادگیری عمیق‌تری نسبت به ساعت‌های طولانی و پراکنده می‌سازه ✨",
-        `به خودت افتخار کن که هر روز برای رشد مهارت‌هات وقت می‌ذاری ${displayName} عزیز 🌸`,
-        "امروز با کیفیت و آرامش جلو برو؛ نتیجه‌ها در پس همین پیوستگی ظاهر می‌شن 🤍",
-        "تعادل بین زندگی، استراحت و یادگیری، رمز ماندگاری این مسیره 🌿"
-      ], [displayName]);
+      const totalStudiedMinutes = useMemo(() => {
+        return sessions.reduce((sum, s) => sum + (s.durationMinutes || 0), 0);
+      }, [sessions]);
 
       useEffect(() => {
         if (!supabaseClient) {
@@ -541,14 +563,12 @@
       }, []);
 
       const loadLocalData = async () => {
-        const [p, r, tp, t, s, q, fc, g, prof] = await Promise.all([
+        const [p, r, tp, t, s, g, prof] = await Promise.all([
           db.paths.toArray(),
           db.resources.toArray(),
           db.topics.toArray(),
           db.tasks.toArray(),
           db.sessions.toArray(),
-          db.quizzes.toArray(),
-          db.flashcards.toArray(),
           db.goals.toArray(),
           db.profile.get('user_profile')
         ]);
@@ -557,8 +577,6 @@
         setTopics(tp);
         setTasks(t);
         setSessions(s);
-        setQuizzes(q);
-        setFlashcards(fc);
         setGoals(g);
         if (prof) setProfileData(prof);
       };
@@ -577,8 +595,6 @@
           tasks: await db.tasks.toArray(),
           topics: await db.topics.toArray(),
           resources: await db.resources.toArray(),
-          flashcards: await db.flashcards.toArray(),
-          quizzes: await db.quizzes.toArray(),
           sessions: await db.sessions.toArray(),
           goals: await db.goals.toArray(),
           profile: currentProf
@@ -600,8 +616,6 @@
         if (c.tasks) await db.tasks.bulkPut(c.tasks);
         if (c.topics) await db.topics.bulkPut(c.topics);
         if (c.resources) await db.resources.bulkPut(c.resources);
-        if (c.flashcards) await db.flashcards.bulkPut(c.flashcards);
-        if (c.quizzes) await db.quizzes.bulkPut(c.quizzes);
         if (c.sessions) await db.sessions.bulkPut(c.sessions);
         if (c.goals) await db.goals.bulkPut(c.goals);
         if (c.profile) {
@@ -657,7 +671,6 @@
             loadLocalData();
           }
         } catch (err) {
-          console.error(err);
           setAuthError(err.message || 'خطا در ارتباط');
         } finally {
           setAuthLoading(false);
@@ -671,135 +684,69 @@
         await db.open();
         setPaths([]);
         setTasks([]);
-        setTopics([]);
-        setGoals([]);
         setSessions([]);
         setProfileData({ fullName: '', avatar: 'icon.jpg', age: '', field: '', interests: '' });
-      };
-
-      const handleUpdateProfile = async (updatedData) => {
-        setProfileData(updatedData);
-        await db.profile.put({ id: 'user_profile', ...updatedData });
-        
-        if (supabaseClient && currentUser) {
-          await supabaseClient.auth.updateUser({
-            data: {
-              full_name: updatedData.fullName,
-              avatar: updatedData.avatar,
-              age: updatedData.age,
-              field: updatedData.field,
-              interests: updatedData.interests
-            }
-          });
-        }
-        await syncPush();
-        alert('پروفایل با موفقیت ذخیره شد ✨');
-        triggerRefresh();
       };
 
       if (checkingAuth) {
         return (
           <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-              <p className="text-xs font-bold text-slate-500">در حال بالا آمدن سیستم‌عامل...</p>
-            </div>
+            <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         );
       }
 
       if (!currentUser) {
         return (
-          <div className="min-h-screen flex items-center justify-center p-4 py-8 relative">
-            <DynamicAtmosphere currentTab="login" />
-            <div className="glass-card shadow-2xl rounded-3xl p-6 sm:p-8 w-full max-w-md space-y-6">
+          <div className="min-h-screen flex items-center justify-center p-4 bg-[#FAF9FE]">
+            <div className="bg-white border border-slate-200/80 shadow-2xl rounded-3xl p-6 sm:p-8 w-full max-w-md space-y-6">
               <div className="text-center space-y-2">
                 <img src="icon.jpg" alt="Logo" className="w-16 h-16 rounded-2xl mx-auto shadow-md object-cover" />
                 <h1 className="font-black text-slate-800 text-lg">Learning OS</h1>
-                <p className="text-xs text-slate-400">
-                  {authMode === 'register' ? 'مشخصات خود را وارد کنید تا مشاور شما را بشناسد' : 'ورود به حساب کاربری شخصی'}
-                </p>
+                <p className="text-xs text-slate-400">ورود به سیستم‌عامل یادگیری</p>
               </div>
 
               {authError && (
-                <div className="bg-rose-50/90 border border-rose-200 text-rose-700 text-xs p-3 rounded-2xl">
+                <div className="bg-rose-50 text-rose-700 text-xs p-3 rounded-2xl border border-rose-200">
                   {authError}
                 </div>
               )}
 
               <form onSubmit={handleAuth} className="space-y-3 text-xs">
                 {authMode === 'register' && (
-                  <>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="col-span-2">
-                        <label className="block text-slate-600 font-bold mb-1">نام و نام خانوادگی</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="مثلاً: محبوبه..."
-                          value={fullName}
-                          onChange={e => setFullName(e.target.value)}
-                          className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-600 font-bold mb-1">سن</label>
-                        <input
-                          type="number"
-                          placeholder="مثلاً: ۲۵"
-                          value={age}
-                          onChange={e => setAge(e.target.value)}
-                          className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs text-center"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-600 font-bold mb-1">رشته تحصیلی یا حوزه اصلی فعالیت</label>
-                      <input
-                        type="text"
-                        placeholder="مثلاً: روانشناسی، آموزش، طراحی..."
-                        value={field}
-                        onChange={e => setField(e.target.value)}
-                        className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-600 font-bold mb-1">مهارت‌ها و علاقه‌مندی‌های هدف</label>
-                      <textarea
-                        rows="2"
-                        placeholder="مثلاً: رفرنس‌های بالینی، طراحی Canva، زبان..."
-                        value={interests}
-                        onChange={e => setInterests(e.target.value)}
-                        className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-xs leading-relaxed"
-                      />
-                    </div>
-                  </>
+                  <div>
+                    <label className="block text-slate-600 font-bold mb-1">نام و نام خانوادگی</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="نام شما..."
+                      value={fullName}
+                      onChange={e => setFullName(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5"
+                    />
+                  </div>
                 )}
 
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1">پست الکترونیک (ایمیل)</label>
+                  <label className="block text-slate-600 font-bold mb-1">ایمیل</label>
                   <input
                     type="email"
                     required
-                    placeholder="name@example.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
-                    className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-left font-mono text-xs"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-left font-mono"
                     dir="ltr"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 font-bold mb-1">رمز عبور (حداقل ۶ کاراکتر)</label>
+                  <label className="block text-slate-600 font-bold mb-1">رمز عبور</label>
                   <input
                     type="password"
                     required
-                    placeholder="••••••••"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
-                    className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-left font-mono text-xs"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-left font-mono"
                     dir="ltr"
                   />
                 </div>
@@ -807,18 +754,18 @@
                 <button
                   type="submit"
                   disabled={authLoading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-lg shadow-indigo-200 transition disabled:opacity-50 text-xs mt-2"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-lg transition text-xs"
                 >
-                  {authLoading ? 'در حال برقراری ارتباط...' : (authMode === 'login' ? 'ورود به سیستم‌عامل' : 'تکمیل ثبت‌نام و شناخت مشاور ✨')}
+                  {authMode === 'login' ? 'ورود به حساب' : 'ثبت‌نام و شروع'}
                 </button>
 
                 <div className="text-center pt-2">
                   <button
                     type="button"
-                    onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthError(''); }}
-                    className="text-xs text-indigo-600 font-bold hover:underline"
+                    onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                    className="text-xs text-indigo-600 font-bold"
                   >
-                    {authMode === 'login' ? 'حساب کاربری ندارید؟ ثبت‌نام و تکمیل شناخت' : 'قبلاً عضو شده‌اید؟ ورود'}
+                    {authMode === 'login' ? 'عضو نیستید؟ ثبت‌نام' : 'حساب دارید؟ ورود'}
                   </button>
                 </div>
               </form>
@@ -828,20 +775,18 @@
       }
 
       return (
-        <div className="min-h-screen flex relative">
-          {/* تزریق پس‌زمینه زنده و متغیر */}
-          <DynamicAtmosphere currentTab={currentTab} />
+        <div className="min-h-screen flex bg-gradient-to-br from-[#FAF9FE] via-[#F4F3FB] to-[#F7F5FC]">
+          {/* شاخه‌های زنده و در حال رشد دور کادر صفحه */}
+          <LivingVineFrame studyMinutes={totalStudiedMinutes} />
 
-          {/* منوی سایدبار شیشه‌ای */}
-          <aside className="hidden md:flex flex-col w-64 glass-card border-l border-white/60 p-6 justify-between fixed top-0 bottom-0 right-0 z-20 shadow-sm">
+          {/* سایدبار */}
+          <aside className="hidden md:flex flex-col w-64 bg-white/80 backdrop-blur-xl border-l border-slate-200/80 p-6 justify-between fixed top-0 bottom-0 right-0 z-20">
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <img src={displayAvatar} alt={displayName} className="w-11 h-11 rounded-2xl object-cover border border-indigo-100 shadow-sm" />
-                <div className="min-w-0">
-                  <h2 className="font-bold text-slate-800 text-sm truncate">{displayName}</h2>
-                  <span className="text-[11px] text-slate-400 truncate block">
-                    {profileData.field ? profileData.field : 'سیستم‌عامل یادگیری'}
-                  </span>
+                <img src={displayAvatar} alt={displayName} className="w-11 h-11 rounded-2xl object-cover border" />
+                <div>
+                  <h2 className="font-bold text-slate-800 text-sm">{displayName}</h2>
+                  <span className="text-[11px] text-slate-400">سیستم‌عامل یادگیری</span>
                 </div>
               </div>
 
@@ -849,22 +794,14 @@
                 {[
                   { id: 'dashboard', label: 'داشبورد اصلی', icon: '🏠' },
                   { id: 'focus', label: 'اتاق تمرکز و همراه', icon: '⏱️' },
-                  { id: 'paths', label: 'مسیرهای یادگیری', icon: '📚' },
-                  { id: 'clipper', label: 'استخراج وب و لینک‌ها', icon: '🌐' },
-                  { id: 'tasks', label: 'برنامه روزانه (WHAT)', icon: '📋' },
-                  { id: 'leitner', label: 'جعبه لایتنر هوشمند', icon: '🗂️' },
-                  { id: 'recovery', label: 'اتاق ریکاوری و عقب‌افتاده', icon: '🛋️' },
-                  { id: 'assistant', label: 'مشاور و دستیار هوشمند', icon: '🌸' },
-                  { id: 'reports', label: 'پیشرفت و اهداف ماهانه', icon: '📊' },
-                  { id: 'profile', label: 'پروفایل و علایق شناختی', icon: '⚙️' }
+                  { id: 'tasks', label: 'برنامه روزانه', icon: '📋' },
+                  { id: 'reports', label: 'پیشرفت و اهداف', icon: '📊' }
                 ].map(item => (
                   <button
                     key={item.id}
                     onClick={() => setCurrentTab(item.id)}
                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl font-bold transition ${
-                      currentTab === item.id 
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' 
-                        : 'text-slate-600 hover:bg-white/60'
+                      currentTab === item.id ? 'bg-indigo-600 text-white shadow' : 'text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <span>{item.icon}</span>
@@ -874,798 +811,89 @@
               </nav>
             </div>
 
-            <div className="space-y-2 border-t border-slate-200/60 pt-4">
-              <div className="text-[11px] text-slate-400 font-mono truncate">{currentUser.email}</div>
+            <div className="space-y-2 border-t pt-4">
               <button
                 onClick={handleLogout}
-                className="w-full text-center text-xs text-rose-600 bg-rose-50/80 border border-rose-200 py-2 rounded-xl font-bold hover:bg-rose-100 transition mt-2"
+                className="w-full text-center text-xs text-rose-600 bg-rose-50 border border-rose-200 py-2 rounded-xl font-bold"
               >
                 خروج از حساب
               </button>
             </div>
           </aside>
 
-          <main className="flex-1 md:mr-64 flex flex-col min-w-0">
-            <header className="glass-card border-b border-white/60 px-4 md:px-8 py-3 flex items-center justify-between sticky top-0 z-10">
-              <div className="text-xs font-bold text-slate-700 flex items-center gap-2.5">
-                <img src={displayAvatar} alt={displayName} className="w-7 h-7 rounded-full object-cover border border-white" />
-                <span>{displayName} {profileData.field && <span className="text-slate-400 font-normal">({profileData.field})</span>}</span>
+          {/* محتوای اصلی */}
+          <main className="flex-1 md:mr-64 p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6 pb-24 relative z-10">
+            <header className="bg-white/80 backdrop-blur-md border border-slate-200/80 px-5 py-3 rounded-2xl flex items-center justify-between shadow-sm">
+              <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
+                <span>{displayName} عزیز</span>
+                <span className="text-[11px] text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                  🌿 {totalStudiedMinutes} دقیقه تمرکز ثبت‌شده
+                </span>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={async () => { await syncPush(); alert('اطلاعات با سرور ابری همگام شد ✅'); }}
-                  className="bg-indigo-50/90 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl border border-indigo-200 hover:bg-indigo-100 transition"
-                >
-                  ☁️ ذخیره ابری
-                </button>
-                <button
-                  onClick={() => setCurrentTab('profile')}
-                  className="text-xs text-slate-600 bg-white/70 px-3 py-1.5 rounded-xl font-bold hover:bg-white border border-slate-200/60 transition"
-                >
-                  ⚙️ پروفایل
-                </button>
-              </div>
+              <button
+                onClick={async () => { await syncPush(); alert('اطلاعات ذخیره شد ✨'); }}
+                className="bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-xl border border-indigo-200"
+              >
+                ☁️ ذخیره ابری
+              </button>
             </header>
 
-            <div className="p-4 md:p-8 max-w-4xl mx-auto w-full space-y-6 pb-24 md:pb-12">
-              {currentTab === 'dashboard' && (
-                <DashboardView
-                  displayName={displayName}
-                  displayAvatar={displayAvatar}
-                  quotes={DAILY_QUOTES}
-                  paths={paths}
-                  tasks={tasks}
-                  topics={topics}
-                  goals={goals}
-                  availableTimeMinutes={availableTimeMinutes}
-                  setAvailableTime={setAvailableTime}
-                  onGoToFocus={() => setCurrentTab('focus')}
-                  triggerRefresh={() => { triggerRefresh(); syncPush(); }}
-                />
-              )}
+            {currentTab === 'dashboard' && (
+              <div className="space-y-6">
+                <div className="bg-gradient-to-l from-indigo-50 via-purple-50 to-pink-50 border border-purple-100 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+                  <div>
+                    <h1 className="text-xl font-black text-slate-800">روزت پر از تمرکز و آرامش {displayName} جان 🌸</h1>
+                    <p className="text-xs text-slate-500 mt-2">هر دقیقه تمرکز باعث رشد پیچک‌های اتاق مطالعه‌ات می‌شود.</p>
+                  </div>
+                  <button
+                    onClick={() => setCurrentTab('focus')}
+                    className="bg-indigo-600 text-white font-bold text-xs px-5 py-2.5 rounded-2xl shadow hover:bg-indigo-700"
+                  >
+                    ورود به اتاق مطالعه بانی ←
+                  </button>
+                </div>
+              </div>
+            )}
 
-              {currentTab === 'focus' && (
-                <FocusRoomView onSessionSaved={() => { triggerRefresh(); syncPush(); }} />
-              )}
+            {currentTab === 'focus' && (
+              <FocusRoomView onSessionSaved={triggerRefresh} />
+            )}
 
-              {currentTab === 'paths' && (
-                <PathsUniversalView paths={paths} topics={topics} triggerRefresh={() => { triggerRefresh(); syncPush(); }} />
-              )}
+            {currentTab === 'tasks' && (
+              <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
+                <h3 className="font-bold text-slate-800 text-sm">برنامه روزانه شما</h3>
+                <p className="text-xs text-slate-400">تسک‌های خود را در این بخش مدیریت کنید.</p>
+              </div>
+            )}
 
-              {currentTab === 'clipper' && (
-                <WebClipperView paths={paths} triggerRefresh={() => { triggerRefresh(); syncPush(); }} />
-              )}
-
-              {currentTab === 'tasks' && (
-                <TasksView paths={paths} tasks={tasks} triggerRefresh={() => { triggerRefresh(); syncPush(); }} />
-              )}
-
-              {currentTab === 'leitner' && (
-                <LeitnerView topics={topics} flashcards={flashcards} triggerRefresh={() => { triggerRefresh(); syncPush(); }} />
-              )}
-
-              {currentTab === 'recovery' && (
-                <RecoveryLoungeView displayName={displayName} tasks={tasks} topics={topics} triggerRefresh={() => { triggerRefresh(); syncPush(); }} />
-              )}
-
-              {currentTab === 'assistant' && (
-                <CounselorAssistantView
-                  displayName={displayName}
-                  profileData={profileData}
-                  paths={paths}
-                  topics={topics}
-                  goals={goals}
-                  triggerRefresh={() => { triggerRefresh(); syncPush(); }}
-                />
-              )}
-
-              {currentTab === 'reports' && (
-                <ReportsView displayName={displayName} sessions={sessions} goals={goals} topics={topics} />
-              )}
-
-              {currentTab === 'profile' && (
-                <ProfileSettingsView
-                  initialData={profileData}
-                  onSave={handleUpdateProfile}
-                />
-              )}
-            </div>
+            {currentTab === 'reports' && (
+              <div className="bg-white/80 backdrop-blur-md p-6 rounded-3xl border border-slate-200/80 shadow-sm text-center space-y-2">
+                <h3 className="font-bold text-slate-800 text-sm">مجموع زمان مطالعه: {totalStudiedMinutes} دقیقه</h3>
+                <p className="text-xs text-slate-400">هر جلسه مطالعه در فضای ابری همگام‌سازی می‌شود.</p>
+              </div>
+            )}
           </main>
 
-          {/* منوی پایین موبایل */}
-          <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 glass-card border-t border-white/80 flex items-center justify-around px-1 z-30 shadow-lg">
+          {/* نوار موبایل */}
+          <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/90 backdrop-blur border-t border-slate-200 flex items-center justify-around z-30">
             {[
               { id: 'dashboard', label: 'خانه', icon: '🏠' },
               { id: 'focus', label: 'تمرکز', icon: '⏱️' },
               { id: 'tasks', label: 'برنامه', icon: '📋' },
-              { id: 'assistant', label: 'مشاور', icon: '🌸' },
-              { id: 'profile', label: 'پروفایل', icon: '⚙️' }
+              { id: 'reports', label: 'گزارش', icon: '📊' }
             ].map(item => (
               <button
                 key={item.id}
                 onClick={() => setCurrentTab(item.id)}
-                className={`flex flex-col items-center gap-1 text-[10px] font-bold ${
+                className={`flex flex-col items-center text-[10px] font-bold ${
                   currentTab === item.id ? 'text-indigo-600' : 'text-slate-400'
                 }`}
               >
-                <span className="text-sm">{item.icon}</span>
+                <span className="text-base">{item.icon}</span>
                 <span>{item.label}</span>
               </button>
             ))}
           </nav>
-        </div>
-      );
-    }
-
-    function ProfileSettingsView({ initialData, onSave }) {
-      const [fullName, setFullName] = useState(initialData.fullName || '');
-      const [avatar, setAvatar] = useState(initialData.avatar || 'icon.jpg');
-      const [age, setAge] = useState(initialData.age || '');
-      const [field, setField] = useState(initialData.field || '');
-      const [interests, setInterests] = useState(initialData.interests || '');
-
-      const handleImageUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        if (file.size > 2 * 1024 * 1024) {
-          alert('حجم عکس حداکثر ۲ مگابایت باشد.');
-          return;
-        }
-
-        const reader = new FileReader();
-        reader.onloadend = () => setAvatar(reader.result);
-        reader.readAsDataURL(file);
-      };
-
-      const handleSubmit = (e) => {
-        e.preventDefault();
-        onSave({ fullName, avatar, age, field, interests });
-      };
-
-      return (
-        <div className="glass-card p-6 sm:p-8 rounded-3xl shadow-sm max-w-xl mx-auto space-y-6">
-          <div className="border-b border-slate-200/60 pb-4">
-            <h2 className="font-bold text-slate-800 text-base">پروفایل شناختی و تنظیمات نمایه</h2>
-            <p className="text-xs text-slate-400 mt-1">مشاور هوشمند با بررسی این فیلدها، برنامه‌ها را متناسب با شما تنظیم می‌کند.</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-            <div className="flex flex-col sm:flex-row items-center gap-5 pb-3 border-b border-slate-200/60">
-              <img src={avatar} alt="Profile" className="w-20 h-20 rounded-3xl object-cover border-2 border-indigo-500 shadow-md" />
-              <div className="space-y-1.5 text-center sm:text-right">
-                <label className="block text-slate-700 font-bold">آپلود عکس جدید از دستگاه:</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="block w-full text-xs text-slate-500 file:mr-0 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div className="col-span-2">
-                <label className="block text-slate-700 font-bold mb-1">نام و نام خانوادگی:</label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                  className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 font-bold text-slate-800"
-                />
-              </div>
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">سن:</label>
-                <input
-                  type="number"
-                  value={age}
-                  onChange={e => setAge(e.target.value)}
-                  className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 text-center"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-bold mb-1">رشته تحصیلی یا حوزه اصلی:</label>
-              <input
-                type="text"
-                value={field}
-                onChange={e => setField(e.target.value)}
-                className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-700 font-bold mb-1">مهارت‌ها و علاقه‌مندی‌های هدف:</label>
-              <textarea
-                rows="3"
-                value={interests}
-                onChange={e => setInterests(e.target.value)}
-                className="w-full bg-white/70 border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:border-indigo-600 leading-relaxed"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl shadow-md shadow-indigo-100 transition text-xs mt-2"
-            >
-              ذخیره تغییرات نمایه و به‌روزرسانی مشاور ✓
-            </button>
-          </form>
-        </div>
-      );
-    }
-
-    function CounselorAssistantView({ displayName, profileData, paths, topics, goals, triggerRefresh }) {
-      const [input, setInput] = useState('');
-      
-      const initialGreeting = useMemo(() => {
-        let text = `سلام ${displayName} جانم! 🌸 من اینجام؛ مثل یک دوست و مشاور یادگیری همگام با تو.`;
-        if (profileData.field) {
-          text += ` با توجه به تمرکزت در حوزه «${profileData.field}»`;
-        }
-        if (profileData.interests) {
-          text += ` و علایق هدف [${profileData.interests}]، برنامه‌ت رو سبک، دقیق و پیوسته می‌چینیم.`;
-        } else {
-          text += ` هر هدفی برای این ماه داری بنویس تا با هم خردش کنیم.`;
-        }
-        return text;
-      }, [displayName, profileData]);
-
-      const [messages, setMessages] = useState([
-        { id: '1', sender: 'counselor', text: initialGreeting }
-      ]);
-
-      const handleSend = (e) => {
-        e.preventDefault();
-        if (!input.trim()) return;
-        const text = input.trim();
-        setMessages(prev => [...prev, { id: 'u-' + Date.now(), sender: 'user', text }]);
-        setInput('');
-
-        setTimeout(() => {
-          let reply = '';
-          if (text.includes('مهمون') || text.includes('خسته') || text.includes('وقت ندارم')) {
-            reply = `${displayName} عزیزم، آرامش و زندگی اولویت اوله 🌸 برنامه رو بردم روی حالت «حفظ پیوستگی کم‌فشار». فقط ۱۰ دقیقه مطالعه هم کافیه تا ریتم حفظ بشه.`;
-          } else if (text.includes('هدف') || text.includes('می‌خوام')) {
-            reply = `هدف فوق‌العاده‌ایه ${displayName} جان! 🎯 بر اساس زمینه تخصصی‌ت، اون رو خرد کردم و آماده تیک زدن در داشبورد گذاشتم.`;
-          } else {
-            reply = `پیامت دریافت شد ${displayName} جان 🌸 همراهتم تا با ریتم پایدار و بدون فرسودگی مهارت‌هات رو ارتقا بدی.`;
-          }
-          setMessages(prev => [...prev, { id: 'c-' + Date.now(), sender: 'counselor', text: reply }]);
-        }, 400);
-      };
-
-      return (
-        <div className="glass-card rounded-3xl shadow-sm flex flex-col h-[520px]">
-          <div className="p-4 border-b border-slate-200/60 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🌸</span>
-              <div>
-                <h3 className="font-bold text-slate-800 text-xs">مشاور و همراه هوشمند</h3>
-                <span className="text-[10px] text-emerald-600 font-bold">● متصل به علایق {displayName}</span>
-              </div>
-            </div>
-            {profileData.field && (
-              <span className="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full font-bold">
-                حوزه: {profileData.field}
-              </span>
-            )}
-          </div>
-
-          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
-            {messages.map(m => (
-              <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] p-3.5 rounded-2xl whitespace-pre-wrap leading-relaxed ${m.sender === 'user' ? 'bg-indigo-600 text-white shadow-md' : 'bg-white/90 text-slate-800 border'}`}>
-                  {m.text}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <form onSubmit={handleSend} className="p-3 border-t border-slate-200/60 flex gap-2">
-            <input
-              type="text"
-              placeholder="پیام یا هدف جدیدت رو اینجا بنویس..."
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              className="flex-1 bg-white/80 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs focus:outline-none"
-            />
-            <button type="submit" className="bg-indigo-600 text-white font-bold px-5 py-2.5 rounded-2xl text-xs hover:bg-indigo-700 shadow-md">ارسال</button>
-          </form>
-        </div>
-      );
-    }
-
-    function DashboardView({ displayName, displayAvatar, quotes, paths, tasks, topics, goals, availableTimeMinutes, setAvailableTime, onGoToFocus, triggerRefresh }) {
-      const todayDate = useMemo(() => getJalaliDate(), []);
-      const quote = useMemo(() => quotes[new Date().getDate() % quotes.length], [quotes]);
-
-      const topTask = useMemo(() => {
-        const pending = tasks.filter(t => t.status !== 'done');
-        return pending.find(t => t.isVital || t.priority === 'critical') || pending[0];
-      }, [tasks]);
-
-      const toggleTask = async (task) => {
-        const next = task.status === 'done' ? 'not_started' : 'done';
-        await db.tasks.update(task.id, { status: next });
-        triggerRefresh();
-      };
-
-      const filteredTasks = useMemo(() => {
-        let acc = 0;
-        return tasks.filter(t => {
-          if (t.status === 'done') return true;
-          if (acc + (t.estimatedMinutes || 30) <= availableTimeMinutes) {
-            acc += (t.estimatedMinutes || 30);
-            return true;
-          }
-          return false;
-        });
-      }, [tasks, availableTimeMinutes]);
-
-      return (
-        <div className="space-y-6">
-          <div className="glass-card rounded-3xl p-6 shadow-sm flex items-center justify-between gap-4 border border-white/80">
-            <div>
-              <div className="flex items-center gap-2 text-indigo-700 text-xs font-bold mb-1">
-                <span>📅</span>
-                <span>{todayDate}</span>
-              </div>
-              <h1 className="text-xl md:text-2xl font-black text-slate-800">
-                سلام {displayName} جان! روزت سرشار از آرامش 🌸
-              </h1>
-              <p className="text-xs md:text-sm text-slate-600 mt-2">«{quote}»</p>
-            </div>
-            <img src={displayAvatar} alt={displayName} className="w-16 h-16 md:w-20 md:h-20 rounded-3xl object-cover border-2 border-white shadow-md hidden sm:block" />
-          </div>
-
-          <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white p-5 rounded-3xl shadow-xl shadow-indigo-200/50 flex items-center justify-between">
-            <div className="space-y-1">
-              <h3 className="font-black text-sm flex items-center gap-2">
-                <span>⏱️</span> ورود به اتاق تمرکز و فضای سینمایی لوفای
-              </h3>
-              <p className="text-xs text-indigo-100">کافه دنج بارانی، نوای آب جاری و همراه پویا منتظر تو هستند.</p>
-            </div>
-            <button 
-              onClick={onGoToFocus}
-              className="bg-white text-indigo-700 font-black text-xs px-4 py-2.5 rounded-xl shadow hover:bg-indigo-50 transition"
-            >
-              شروع جلسه تمرکز ←
-            </button>
-          </div>
-
-          {topTask && (
-            <div className="glass-card rounded-3xl p-5 shadow-sm relative overflow-hidden border-2 border-indigo-100">
-              <div className="absolute top-0 right-0 w-2 h-full bg-indigo-600"></div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <span className="text-indigo-700 text-[11px] font-bold bg-indigo-50 px-2.5 py-1 rounded-full">
-                    🧠 پیشنهاد مشاور: الان بهترین کار برای تو:
-                  </span>
-                  <h3 className="font-bold text-slate-800 text-sm mt-2">{topTask.title}</h3>
-                  <span className="text-xs text-slate-400 mt-0.5 block">⏱ تخمین: {topTask.estimatedMinutes || 30} دقیقه</span>
-                </div>
-                <button
-                  onClick={() => toggleTask(topTask)}
-                  className="bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition shadow"
-                >
-                  انجام شد ✓
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="glass-card rounded-3xl p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div>
-                <h3 className="font-bold text-slate-800 text-sm">امروز چقدر زمان در اختیار داری؟</h3>
-                <p className="text-xs text-slate-400">سیستم حجم مناسب را بر اساس فرصت شما می‌چیند.</p>
-              </div>
-              <div className="flex items-center gap-1.5 bg-white/70 p-1.5 rounded-2xl border border-slate-200">
-                {[30, 60, 90, 120, 180].map(m => (
-                  <button
-                    key={m}
-                    onClick={() => setAvailableTime(m)}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition ${
-                      availableTimeMinutes === m ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    {m} دقیقه
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {filteredTasks.length === 0 ? (
-                <div className="text-center py-6 text-xs text-slate-400">تسک فعالی برای امروز تعریف نشده است.</div>
-              ) : (
-                filteredTasks.map(t => (
-                  <div key={t.id} className="flex items-center justify-between p-3.5 bg-white/80 rounded-2xl border border-slate-100 text-xs">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={t.status === 'done'}
-                        onChange={() => toggleTask(t)}
-                        className="w-4 h-4 accent-indigo-600 rounded"
-                      />
-                      <span className={`font-bold ${t.status === 'done' ? 'line-through text-slate-400' : 'text-slate-700'}`}>
-                        {t.title}
-                      </span>
-                    </div>
-                    <span className="text-slate-400">⏱ {t.estimatedMinutes || 30} دقیقه</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    function WebClipperView({ paths, triggerRefresh }) {
-      const [url, setUrl] = useState('');
-      const [pathId, setPathId] = useState(paths[0]?.id || '');
-      const [title, setTitle] = useState('');
-      const [extractedContent, setExtractedContent] = useState('');
-      const [isExtracting, setIsExtracting] = useState(false);
-
-      const handleClipper = (e) => {
-        e.preventDefault();
-        if (!url) return;
-        setIsExtracting(true);
-        setTimeout(() => {
-          const sampleText = `این نسخه استخراج‌شده از لینک (${url}) است.\nمفاهیم کلیدی، تعاریف و نکات بدون تبلیغات ثبت شدند.`;
-          setExtractedContent(sampleText);
-          setIsExtracting(false);
-        }, 600);
-      };
-
-      const handleSaveResource = async () => {
-        if (!pathId || !extractedContent) return;
-        await db.resources.add({
-          id: 'res-' + Date.now(),
-          pathId,
-          title: title || 'مقاله آنلاین',
-          type: 'web_article',
-          content: extractedContent,
-          url
-        });
-        alert('منبع در رفرنس‌های شما ذخیره شد ✨');
-        setUrl('');
-        setTitle('');
-        setExtractedContent('');
-        triggerRefresh();
-      };
-
-      return (
-        <div className="space-y-6">
-          <div className="glass-card p-6 rounded-3xl shadow-sm space-y-3">
-            <h3 className="font-bold text-slate-800 text-sm">استخراج مقالات و منابع وب</h3>
-            <form onSubmit={handleClipper} className="space-y-3 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  type="url"
-                  placeholder="آدرس اینترنتی (URL)..."
-                  value={url}
-                  onChange={e => setUrl(e.target.value)}
-                  className="bg-white/80 border p-2.5 rounded-xl focus:outline-none"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="عنوان منبع..."
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  className="bg-white/80 border p-2.5 rounded-xl focus:outline-none"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <select
-                  value={pathId}
-                  onChange={e => setPathId(e.target.value)}
-                  className="bg-white/80 border p-2.5 rounded-xl text-xs flex-1"
-                >
-                  <option value="">انتخاب مسیر یادگیری...</option>
-                  {paths.map(p => (
-                    <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
-                  ))}
-                </select>
-                <button
-                  type="submit"
-                  disabled={isExtracting}
-                  className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition shadow"
-                >
-                  {isExtracting ? 'در حال پردازش...' : 'استخراج محتوا ⚡'}
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {extractedContent && (
-            <div className="glass-card p-6 rounded-3xl border border-emerald-300 space-y-4">
-              <div className="p-4 bg-white/90 rounded-2xl text-xs text-slate-700 whitespace-pre-wrap leading-relaxed border">
-                {extractedContent}
-              </div>
-              <button
-                onClick={handleSaveResource}
-                className="bg-emerald-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl hover:bg-emerald-700 transition shadow"
-              >
-                ذخیره در رفرنس‌های این مهارت ✓
-              </button>
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    function LeitnerView({ topics, flashcards, triggerRefresh }) {
-      const [front, setFront] = useState('');
-      const [back, setBack] = useState('');
-      const [selectedTopicId, setSelectedTopicId] = useState(topics[0]?.id || '');
-      const [revealedCardId, setRevealedCardId] = useState(null);
-
-      const handleAddCard = async (e) => {
-        e.preventDefault();
-        if (!front || !back || !selectedTopicId) return;
-        await db.flashcards.add({
-          id: 'fc-' + Date.now(),
-          topicId: selectedTopicId,
-          front,
-          back,
-          step: 1,
-          nextReviewDate: new Date().toISOString().split('T')[0]
-        });
-        setFront('');
-        setBack('');
-        triggerRefresh();
-      };
-
-      const handleRateCard = async (card, success) => {
-        const nextStep = success ? card.step + 1 : 1;
-        await db.flashcards.update(card.id, {
-          step: nextStep,
-          nextReviewDate: new Date(Date.now() + nextStep * 86400000 * 2).toISOString().split('T')[0]
-        });
-        setRevealedCardId(null);
-        triggerRefresh();
-      };
-
-      return (
-        <div className="space-y-6">
-          <form onSubmit={handleAddCard} className="glass-card p-5 rounded-3xl shadow-sm space-y-3 text-xs">
-            <h3 className="font-bold text-slate-800 text-sm">افزودن فلش‌کارت مرور فواصل‌دار</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <input
-                type="text"
-                placeholder="روی کارت (سوال / مفهوم کلیدی)..."
-                value={front}
-                onChange={e => setFront(e.target.value)}
-                className="bg-white/80 border p-2.5 rounded-xl"
-                required
-              />
-              <input
-                type="text"
-                placeholder="پشت کارت (پاسخ / توضیح)..."
-                value={back}
-                onChange={e => setBack(e.target.value)}
-                className="bg-white/80 border p-2.5 rounded-xl"
-                required
-              />
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <select
-                value={selectedTopicId}
-                onChange={e => setSelectedTopicId(e.target.value)}
-                className="bg-white/80 border p-2 rounded-xl flex-1 text-xs"
-              >
-                {topics.map(t => (
-                  <option key={t.id} value={t.id}>{t.title}</option>
-                ))}
-              </select>
-              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2 rounded-xl hover:bg-indigo-700 transition shadow">
-                ثبت کارت
-              </button>
-            </div>
-          </form>
-
-          <div className="space-y-3">
-            <h4 className="font-bold text-slate-800 text-xs">کارت‌های آماده مرور ({flashcards.length})</h4>
-            {flashcards.length === 0 ? (
-              <div className="glass-card p-8 rounded-3xl text-center text-xs text-slate-400">
-                جعبه لایتنر فعلاً خالی است.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {flashcards.map(fc => (
-                  <div key={fc.id} className="glass-card p-5 rounded-3xl shadow-sm space-y-3 text-xs">
-                    <div className="font-bold text-slate-800">{fc.front}</div>
-                    {revealedCardId === fc.id ? (
-                      <div className="p-3 bg-indigo-50/80 rounded-xl text-indigo-900 border border-indigo-100">
-                        {fc.back}
-                      </div>
-                    ) : (
-                      <button onClick={() => setRevealedCardId(fc.id)} className="text-[11px] text-indigo-600 font-bold hover:underline block">
-                        نمایش پاسخ کارت 👁️
-                      </button>
-                    )}
-                    {revealedCardId === fc.id && (
-                      <div className="flex justify-end gap-2 pt-2 border-t">
-                        <button onClick={() => handleRateCard(fc, false)} className="bg-rose-50 text-rose-700 px-3 py-1.5 rounded-xl font-bold border border-rose-200">
-                          نیاز به تکرار
-                        </button>
-                        <button onClick={() => handleRateCard(fc, true)} className="bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-xl font-bold border border-emerald-200">
-                          مسلط بودم ✓
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    function RecoveryLoungeView({ displayName, tasks, topics, triggerRefresh }) {
-      const weakTopics = topics.filter(t => t.isWeak || t.mastery < 65);
-      return (
-        <div className="space-y-6">
-          <div className="glass-card border border-amber-200/90 rounded-3xl p-6 shadow-sm bg-gradient-to-r from-amber-50/70 to-orange-50/70">
-            <h3 className="font-bold text-amber-900 text-sm">اتاق ریکاوری و تثبیت مباحث 🌿</h3>
-            <p className="text-xs text-amber-800 mt-1">
-              {displayName} جان، اینجا مباحث چالش‌برانگیز ریشه‌یابی می‌شوند تا بدون استرس پایه‌ها را تقویت کنی.
-            </p>
-          </div>
-          <div className="space-y-3">
-            {weakTopics.length === 0 ? (
-              <div className="glass-card p-8 rounded-3xl text-center text-xs text-slate-400">تمام مباحث در سطح مطلوب هستند ✨</div>
-            ) : (
-              weakTopics.map(wt => (
-                <div key={wt.id} className="glass-card p-4 rounded-2xl border border-amber-200 shadow-sm flex items-center justify-between text-xs">
-                  <div className="font-bold text-slate-800">⚠️ {wt.title}</div>
-                  <button onClick={async () => { await db.topics.update(wt.id, { isWeak: false, mastery: 80 }); triggerRefresh(); }} className="bg-emerald-50 text-emerald-700 font-bold px-3 py-1.5 rounded-xl border border-emerald-200">
-                    تثبیت شد ✓
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    function PathsUniversalView({ paths, topics, triggerRefresh }) {
-      const [showModal, setShowModal] = useState(false);
-      const [title, setTitle] = useState('');
-      const [icon, setIcon] = useState('🧠');
-      const [goal, setGoal] = useState('');
-
-      const handleAdd = async (e) => {
-        e.preventDefault();
-        if (!title) return;
-        await db.paths.add({ id: 'path-' + Date.now(), title, icon, goal, priority: 'high' });
-        setTitle('');
-        setShowModal(false);
-        triggerRefresh();
-      };
-
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="font-bold text-slate-800 text-base">مسیرهای یادگیری</h2>
-            <button onClick={() => setShowModal(true)} className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-indigo-700 transition shadow">+ مسیر جدید</button>
-          </div>
-          {showModal && (
-            <form onSubmit={handleAdd} className="glass-card p-5 rounded-3xl space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-2">
-                <input type="text" placeholder="عنوان مهارت..." value={title} onChange={e => setTitle(e.target.value)} className="bg-white/80 border p-2.5 rounded-xl" required />
-                <input type="text" placeholder="آیکون (ایموجی)..." value={icon} onChange={e => setIcon(e.target.value)} className="bg-white/80 border p-2.5 rounded-xl" />
-              </div>
-              <input type="text" placeholder="هدف کلی..." value={goal} onChange={e => setGoal(e.target.value)} className="w-full bg-white/80 border p-2.5 rounded-xl" />
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="text-slate-400 px-3">لغو</button>
-                <button type="submit" className="bg-indigo-600 text-white font-bold px-4 py-2 rounded-xl hover:bg-indigo-700 shadow">ذخیره</button>
-              </div>
-            </form>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {paths.map(p => (
-              <div key={p.id} className="glass-card p-5 rounded-3xl shadow-sm space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{p.icon}</span>
-                  <h3 className="font-bold text-slate-800 text-sm">{p.title}</h3>
-                </div>
-                <p className="text-xs text-slate-400">{p.goal}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    function TasksView({ paths, tasks, triggerRefresh }) {
-      const [title, setTitle] = useState('');
-      const [pathId, setPathId] = useState(paths[0]?.id || '');
-      const [estimatedMinutes, setEstimatedMinutes] = useState('30');
-
-      const handleAdd = async (e) => {
-        e.preventDefault();
-        if (!title || !pathId) return;
-        await db.tasks.add({ id: 'task-' + Date.now(), title, pathId, estimatedMinutes: parseInt(estimatedMinutes, 10) || 30, status: 'not_started' });
-        setTitle('');
-        triggerRefresh();
-      };
-
-      return (
-        <div className="space-y-6">
-          <form onSubmit={handleAdd} className="glass-card p-5 rounded-3xl space-y-3 text-xs">
-            <h3 className="font-bold text-slate-800 text-sm">افزودن تسک روزانه</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <input type="text" placeholder="عنوان کار..." value={title} onChange={e => setTitle(e.target.value)} className="bg-white/80 border p-2.5 rounded-xl" required />
-              <select value={pathId} onChange={e => setPathId(e.target.value)} className="bg-white/80 border p-2.5 rounded-xl">
-                {paths.map(p => (
-                  <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center justify-between">
-              <input type="number" placeholder="زمان (دقیقه)" value={estimatedMinutes} onChange={e => setEstimatedMinutes(e.target.value)} className="bg-white/80 border p-2 rounded-xl w-32" />
-              <button type="submit" className="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-indigo-700 transition shadow">ثبت تسک</button>
-            </div>
-          </form>
-          <div className="space-y-2">
-            {tasks.map(t => (
-              <div key={t.id} className="flex items-center justify-between p-3.5 glass-card rounded-2xl text-xs">
-                <span className="font-bold text-slate-700">{t.title}</span>
-                <button onClick={async () => { await db.tasks.delete(t.id); triggerRefresh(); }} className="text-rose-500 font-bold hover:underline">حذف</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    function ReportsView({ displayName, sessions, goals, topics }) {
-      const totalMinutes = sessions.reduce((acc, s) => acc + (s.durationMinutes || 0), 0);
-      return (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-            <div className="glass-card p-5 rounded-3xl shadow-sm">
-              <span className="text-xs text-slate-400 font-bold">مجموع زمان مطالعه</span>
-              <div className="text-2xl font-black text-indigo-600 mt-1">{totalMinutes} دقیقه</div>
-            </div>
-            <div className="glass-card p-5 rounded-3xl shadow-sm">
-              <span className="text-xs text-slate-400 font-bold">جلسات مطالعه</span>
-              <div className="text-2xl font-black text-slate-800 mt-1">{sessions.length} جلسه</div>
-            </div>
-            <div className="glass-card p-5 rounded-3xl shadow-sm">
-              <span className="text-xs text-slate-400 font-bold">اهداف فعال</span>
-              <div className="text-2xl font-black text-emerald-600 mt-1">{goals.length} هدف</div>
-            </div>
-          </div>
-          
-          <div className="glass-card p-6 rounded-3xl shadow-sm space-y-3">
-            <h4 className="font-bold text-slate-800 text-sm">وضعیت اهداف این ماه {displayName}</h4>
-            {goals.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-400">هنوز هدفی ثبت نشده است.</div>
-            ) : (
-              goals.map(g => (
-                <div key={g.id} className="p-3.5 bg-white/80 rounded-2xl border border-slate-100 space-y-1 text-xs">
-                  <div className="flex items-center justify-between font-bold text-slate-800">
-                    <span>🎯 {g.title}</span>
-                    <span className="text-indigo-600">{g.progress}% پیشرفت</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${g.progress}%` }}></div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
         </div>
       );
     }
