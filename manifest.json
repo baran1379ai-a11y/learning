@@ -1,13 +1,13 @@
 {
   "name": "Learning OS",
   "short_name": "Learning OS",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#FAF9FE",
   "theme_color": "#818cf8",
   "description": "Personal Cognitive Learning Operating System",
   "icons": [
-    {
+    {"src": "./icon.jpg",
       "src": "icon.jpg",
       "sizes": "512x512",
       "type": "image/jpeg",
