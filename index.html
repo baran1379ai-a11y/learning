@@ -11,7 +11,13 @@
   <!-- آیکون برنامه برای آیفون، ویندوز و مرورگر -->
   <link rel="icon" type="image/jpeg" href="icon.jpg">
   <link rel="apple-touch-icon" href="icon.jpg">
-  
+  <link rel="manifest" href="manifest.json">
+  <meta name="apple-mobile-web-app-title" content="Learning OS">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
