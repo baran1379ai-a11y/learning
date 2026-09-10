@@ -1284,7 +1284,236 @@
         </div>
       );
     }
+// --- بخش تمرکز و کاراکتر همراه ---
+const COMPANIONS = [
+  { id: 'hooty', name: 'هدهد دانا', title: 'عاشق منطق و کنکور', emoji: '🦉', desc: 'تمرکز بالا و بدون حواس‌پرتی' },
+  { id: 'milo', name: 'میلو', title: 'گربه آرام و ریلکس', emoji: '🐱', desc: 'مطالعه آرام همراه با لوفای' },
+  { id: 'sprout', name: 'جوانه', title: 'نماد رشد مداوم', emoji: '🌱', desc: 'رشد گام‌به‌گام با هر دقیقه تمرکز' },
+  { id: 'mocha', name: 'موکا', title: 'پاندای حامی و ضد اضطراب', emoji: '🦊', desc: 'آرام‌بخش زمان‌های استرس امتحان' },
+  { id: 'botty', name: 'کوچولو', title: 'دستیار رباتیک متمرکز', emoji: '🤖', desc: 'محاسبه دقیق زمان و بازدهی' },
+  { id: 'luna', name: 'لونا', title: 'ابر شب‌زنده‌دار و مهربان', emoji: '☁️', desc: 'همراه مطالعه شبانه و عمیق' }
+];
 
+function FocusTimer() {
+  const [selectedBuddy, setSelectedBuddy] = React.useState(null);
+  const [buddyCustomName, setBuddyCustomName] = React.useState('');
+  const [isEditingBuddy, setIsEditingBuddy] = React.useState(false);
+  const [timeLeft, setTimeLeft] = React.useState(25 * 60);
+  const [isRunning, setIsRunning] = React.useState(false);
+  const [sessionSecondsPassed, setSessionSecondsPassed] = React.useState(0);
+  const [activeSound, setActiveSound] = React.useState(null);
+  const audioRef = React.useRef(null);
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('study_buddy');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setSelectedBuddy(parsed.buddy);
+        setBuddyCustomName(parsed.customName);
+      } catch (e) {
+        setIsEditingBuddy(true);
+      }
+    } else {
+      setIsEditingBuddy(true);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    let timer = null;
+    if (isRunning && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft(prev => prev - 1);
+        setSessionSecondsPassed(prev => prev + 1);
+      }, 1000);
+    } else if (timeLeft === 0 && isRunning) {
+      handleCompleteSession();
+    }
+    return () => clearInterval(timer);
+  }, [isRunning, timeLeft]);
+
+  const soundTracks = {
+    rain: 'https://cdn.pixabay.com/download/audio/2022/05/16/audio_db6591201e.mp3?filename=soft-rain-ambient-111154.mp3',
+    lofi: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=lofi-study-112191.mp3'
+  };
+
+  const toggleSound = (type) => {
+    if (activeSound === type) {
+      if (audioRef.current) audioRef.current.pause();
+      setActiveSound(null);
+    } else {
+      setActiveSound(type);
+      if (audioRef.current) {
+        audioRef.current.src = soundTracks[type];
+        audioRef.current.play().catch(() => {});
+      }
+    }
+  };
+
+  const handleSaveBuddy = (buddy) => {
+    const name = buddyCustomName.trim() || buddy.name;
+    setSelectedBuddy(buddy);
+    setBuddyCustomName(name);
+    localStorage.setItem('study_buddy', JSON.stringify({ buddy, customName: name }));
+    setIsEditingBuddy(false);
+  };
+
+  const handleReset = () => {
+    setIsRunning(false);
+    setTimeLeft(25 * 60);
+    setSessionSecondsPassed(0);
+  };
+
+  const handleCompleteSession = async () => {
+    setIsRunning(false);
+    if (audioRef.current) audioRef.current.pause();
+    const minutesStudied = Math.round(sessionSecondsPassed / 60);
+    if (minutesStudied >= 1) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('study_sessions').insert([{
+            user_id: user.id,
+            duration_minutes: minutesStudied,
+            buddy_id: selectedBuddy?.id
+          }]);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      alert(`عالی بود! ${minutesStudied} دقیقه تمرکز عمیق ثبت شد ✨`);
+    }
+    handleReset();
+  };
+
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
+  if (isEditingBuddy || !selectedBuddy) {
+    return (
+      <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-indigo-100 max-w-xl mx-auto my-6 text-right">
+        <h3 className="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
+          <span>✨</span> هم‌مسیر مطالعه‌ات را انتخاب کن
+        </h3>
+        <p className="text-xs text-slate-400 mb-4">این همراه در تمام مراحل تمرکز کنار تو خواهد بود.</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+          {COMPANIONS.map((b) => (
+            <div
+              key={b.id}
+              onClick={() => setSelectedBuddy(b)}
+              className={`cursor-pointer p-3 rounded-2xl border text-center transition-all ${
+                selectedBuddy?.id === b.id 
+                  ? 'border-indigo-500 bg-indigo-50/70 shadow-sm scale-105' 
+                  : 'border-slate-100 bg-white/60 hover:border-indigo-200'
+              }`}
+            >
+              <div className="text-3xl mb-1">{b.emoji}</div>
+              <div className="font-bold text-xs text-slate-800">{b.name}</div>
+              <div className="text-[10px] text-slate-400 mt-0.5">{b.title}</div>
+            </div>
+          ))}
+        </div>
+        {selectedBuddy && (
+          <div className="space-y-3">
+            <input 
+              type="text"
+              placeholder={`نام دلخواه (پیش‌فرض: ${selectedBuddy.name})`}
+              value={buddyCustomName}
+              onChange={(e) => setBuddyCustomName(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 text-right"
+            />
+            <button 
+              onClick={() => handleSaveBuddy(selectedBuddy)}
+              className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold shadow-md hover:bg-indigo-700"
+            >
+              تأیید و شروع تمرکز با {buddyCustomName || selectedBuddy.name}
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white/90 backdrop-blur-md rounded-3xl p-6 shadow-xl border border-indigo-100 max-w-md mx-auto my-6 text-center">
+      <div className="flex justify-between items-center mb-4">
+        <button 
+          onClick={() => setIsEditingBuddy(true)}
+          className="text-[11px] text-indigo-500 bg-indigo-50 px-2.5 py-1 rounded-full hover:bg-indigo-100"
+        >
+          تغییر همراه
+        </button>
+        <span className="text-xs font-bold text-slate-700">همراه: {buddyCustomName}</span>
+      </div>
+
+      <div className="my-3 flex flex-col items-center">
+        <div className={`text-6xl p-4 rounded-full bg-indigo-50/60 border border-indigo-100 transition-transform duration-500 ${
+          isRunning ? 'scale-110 animate-pulse' : ''
+        }`}>
+          {selectedBuddy.emoji}
+        </div>
+        <div className="mt-2 text-xs text-slate-500">
+          {isRunning ? `🤫 ${buddyCustomName} داره کنارت درس می‌خونه...` : `☕ ${buddyCustomName} منتظر شروع توئه`}
+        </div>
+      </div>
+
+      <div className="text-4xl font-black text-slate-800 tracking-wider my-3 font-mono">
+        {formatTime(timeLeft)}
+      </div>
+
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <button
+          onClick={() => setIsRunning(!isRunning)}
+          className={`px-6 py-2 rounded-xl text-xs font-bold text-white shadow transition-all ${
+            isRunning ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'
+          }`}
+        >
+          {isRunning ? 'توقف ⏸' : 'شروع تمرکز ▶'}
+        </button>
+
+        {sessionSecondsPassed > 30 && (
+          <button
+            onClick={handleCompleteSession}
+            className="px-3 py-2 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-xl text-xs font-bold hover:bg-emerald-100"
+          >
+            ثبت زمان 💾
+          </button>
+        )}
+
+        <button
+          onClick={handleReset}
+          className="p-2 text-slate-400 hover:text-slate-600 rounded-xl border border-slate-100 text-xs"
+        >
+          🔄
+        </button>
+      </div>
+
+      <div className="border-t border-slate-100 pt-3 flex items-center justify-center gap-2">
+        <span className="text-[10px] text-slate-400">صداهای آرامش‌بخش:</span>
+        <button
+          onClick={() => toggleSound('rain')}
+          className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
+            activeSound === 'rain' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-600'
+          }`}
+        >
+          🌧 باران
+        </button>
+        <button
+          onClick={() => toggleSound('lofi')}
+          className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all ${
+            activeSound === 'lofi' ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-600'
+          }`}
+        >
+          🎧 لوفای
+        </button>
+        <audio ref={audioRef} loop />
+      </div>
+    </div>
+  );
+}
     ReactDOM.render(<App />, document.getElementById('root'));
   </script>
 </body>
