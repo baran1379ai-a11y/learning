@@ -41,7 +41,8 @@
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
 
     .cozy-night-room {
-      background: linear-gradient(145deg, #1e1b4b 0%, #0f172a 100%);
+      position: relative;
+      overflow: hidden;
       box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.5);
     }
   </style>
@@ -85,7 +86,7 @@
         title: 'گربه آرام و کامواباف', 
         emoji: '🐱', 
         desc: 'بافتن شال‌گردن حین مطالعه شما',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/milo.mp4.mp4',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/milo.mp4',
         messages: ['میو! کنارتم تا شال‌گردنت رو ببافم 🧶', 'عالی پیش میری، خسته نباشی مربی! 🐾']
       },
       { 
@@ -94,7 +95,7 @@
         title: 'جغد کتابخوان در کلبه', 
         emoji: '🦉', 
         desc: 'ورق زدن کتاب با عینک مطالعه',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Hodhod.mp4.mp4',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Hodhod.mp4',
         messages: ['دانش با هر ورق کتاب عمیق‌تر میشه 📖', 'تمرکزت ستودنیه، هوهود! ✨']
       },
       { 
@@ -103,7 +104,7 @@
         title: 'روباه دنج در حال مطالعه', 
         emoji: '🦊', 
         desc: 'یادداشت‌برداری زیر درخت بید مجنون',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Moca.mp4.mp4',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Moca.mp4',
         messages: ['یه تیکه نون تست با مربای توت‌فرنگی مهمون من 🍓', 'بوی چای و کتاب توی جنگل پیچیده ☕']
       },
       { 
@@ -112,7 +113,7 @@
         title: 'گیاه زنده در حال رشد', 
         emoji: '🌱', 
         desc: 'رشد ساقه و باز شدن شکوفه‌ها',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Javane.mp4.mp4',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Javane.mp4',
         messages: ['با هر دقیقه تمرکزت یک برگ تازه باز میشه 🌱', 'نور خورشید و ریتم تو باعث رشد منه ☀️']
       },
       { 
@@ -121,7 +122,7 @@
         title: 'ابر مهربان بارانی', 
         emoji: '☁️', 
         desc: 'بارش قطرات کریستالی آرامش',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Luna.mp4.mp4',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Luna.mp4',
         messages: ['قطرات آرامش دارن هوای اتاق رو خنک میکنن 🌧️', 'عمیق نفس بکش، لونا اینجاست ☁️']
       },
       { 
@@ -130,27 +131,62 @@
         title: 'دستیار رباتیک متمرکز', 
         emoji: '🤖', 
         desc: 'اسکن زمان و نمایش قلب دیجیتال',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Robot.mp4.mp4',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Robot.mp4',
         messages: ['بازدهی سیستم روی حالت ایده‌آل قرار داره بیبی 🤖', 'قلب دیجیتالم برای پیشرفتت می‌تپه ♥']
       }
     ];
 
-    // کامپوننت هوشمند پخش ویدیو یا فریم‌های تعاملی همراهان همراه با ویجت زنده
-    function IllustratedFrameCharacter({ companion, isStudying }) {
-      const [frame, setFrame] = useState(0);
+    // ویجت شناور زنده‌ی همراهان در گوشه صفحه
+    function FloatingLivingPetsWidget({ activeCompanion, setActiveCompanion }) {
+      const [currentMsg, setCurrentMsg] = useState(null);
+      const [activeId, setActiveId] = useState(null);
+
+      const handleInteract = (comp) => {
+        setActiveCompanion(comp);
+        localStorage.setItem('study_companion_id', comp.id);
+        setActiveId(comp.id);
+        const msgs = comp.messages || ['سلام مربی! 🌸', 'کنارتم تا موفق بشی! ✨'];
+        const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
+        setCurrentMsg(randomMsg);
+        setTimeout(() => {
+          setCurrentMsg(null);
+          setActiveId(null);
+        }, 4000);
+      };
+
+      return (
+        <div className="fixed bottom-20 left-4 z-40 hidden lg:flex flex-col gap-2 items-center bg-white/80 backdrop-blur-md p-2.5 rounded-3xl border border-indigo-100 shadow-2xl">
+          <div className="text-[10px] font-bold text-indigo-700 mb-1">همراهان زنده 🐾</div>
+          {COMPANIONS.map(comp => {
+            const isActive = activeCompanion.id === comp.id;
+            const isSelected = activeId === comp.id;
+            return (
+              <div key={comp.id} className="relative group">
+                {/* حباب پیام تعاملی */}
+                {isSelected && currentMsg && (
+                  <div className="absolute left-14 bottom-0 bg-white text-indigo-900 font-bold text-xs px-4 py-2 rounded-2xl shadow-xl border border-indigo-200 whitespace-nowrap animate-bounce z-50">
+                    {currentMsg}
+                  </div>
+                )}
+                <button
+                  onClick={() => handleInteract(comp)}
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl transition-all duration-300 ${
+                    isActive ? 'bg-indigo-600 text-white shadow-lg scale-110 ring-4 ring-indigo-200' : 'bg-slate-100 hover:bg-indigo-50 text-slate-700'
+                  }`}
+                  title={`${comp.name}: ${comp.title}`}
+                >
+                  {comp.emoji}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function IllustratedFrameCharacter({ companion }) {
       const [petMessage, setPetMessage] = useState(null);
       const [isBouncing, setIsBouncing] = useState(false);
-
-      useEffect(() => {
-        if (!isStudying) {
-          setFrame(0);
-          return;
-        }
-        const timer = setInterval(() => {
-          setFrame(f => (f + 1) % 3);
-        }, 450);
-        return () => clearInterval(timer);
-      }, [isStudying]);
 
       const handlePetClick = () => {
         setIsBouncing(true);
@@ -162,48 +198,34 @@
       };
 
       return (
-        <div className="flex flex-col items-center justify-center py-2 select-none relative">
-          {/* حباب دیالوگ زنده ویجت تعاملی */}
-          {petMessage && (
-            <div className="absolute -top-12 bg-white text-indigo-900 font-bold text-xs px-4 py-2 rounded-2xl shadow-xl border border-indigo-200 animate-bounce z-30">
-              {petMessage}
+        <div className="absolute inset-0 w-full h-full overflow-hidden z-0 select-none">
+          {companion.videoUrl ? (
+            <div className="w-full h-full relative cursor-pointer" onClick={handlePetClick}>
+              <video 
+                src={companion.videoUrl} 
+                autoPlay 
+                loop 
+                muted 
+                playsInline 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-black/30 pointer-events-none"></div>
+            </div>
+          ) : (
+            <div className="w-full h-full bg-slate-900 flex items-center justify-center text-7xl">
+              {companion.emoji}
             </div>
           )}
 
-          <div 
-            onClick={handlePetClick}
-            className={`cursor-pointer transition-transform duration-300 ${isBouncing ? 'scale-110 -translate-y-2' : 'hover:scale-105'}`}
-            title="برای تعامل با همراه کلیک کن!"
-          >
-            {companion.videoUrl ? (
-              <div className="relative rounded-3xl overflow-hidden shadow-2xl border-2 border-indigo-500/30 w-full max-w-sm aspect-video bg-black/40">
-                <video 
-                  src={companion.videoUrl} 
-                  autoPlay 
-                  loop 
-                  muted 
-                  playsInline 
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur text-[10px] text-white px-2 py-0.5 rounded-full">
-                  ویدیو زنده هوش مصنوعی ✨
-                </div>
-              </div>
-            ) : (
-              <div className="text-6xl my-4 p-6 bg-white/10 backdrop-blur rounded-full border border-white/20 shadow-inner">
-                {companion.emoji}
-              </div>
-            )}
-          </div>
-
-          <span className="text-xs text-indigo-200 mt-2 font-bold bg-white/10 px-3 py-1 rounded-full border border-white/10">
-            {companion.emoji} {companion.name} ({companion.title}) — لمس کن تا واکنش بدهد 👆
-          </span>
+          {petMessage && (
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur text-indigo-900 font-bold text-xs px-5 py-2.5 rounded-2xl shadow-2xl border border-indigo-200 animate-bounce z-40">
+              {petMessage}
+            </div>
+          )}
         </div>
       );
     }
 
-    // اتاق تمرکز کامل
     function FocusRoomView({ activeCompanion, setActiveCompanion, onSessionSaved }) {
       const [isSelecting, setIsSelecting] = useState(false);
       const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -297,7 +319,7 @@
       };
 
       return (
-        <div className="space-y-6 max-w-2xl mx-auto">
+        <div className="space-y-6 max-w-3xl mx-auto">
           {isSelecting ? (
             <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-md space-y-4">
               <div className="border-b pb-3 flex justify-between items-center">
@@ -327,75 +349,76 @@
               </div>
             </div>
           ) : (
-            <div className="cozy-night-room rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative overflow-hidden border border-indigo-500/20">
+            <div className="cozy-night-room rounded-3xl h-[480px] sm:h-[540px] text-white shadow-2xl relative flex flex-col justify-between p-6 sm:p-8 border border-indigo-500/20">
+              <IllustratedFrameCharacter companion={activeCompanion} />
+
               <div className="flex items-center justify-between relative z-10">
                 <button
                   onClick={() => setIsSelecting(true)}
-                  className="text-xs bg-white/10 hover:bg-white/20 px-3.5 py-1.5 rounded-full border border-white/10 font-bold flex items-center gap-2 transition"
+                  className="text-xs bg-black/40 backdrop-blur hover:bg-black/60 px-4 py-2 rounded-full border border-white/20 font-bold flex items-center gap-2 transition text-white shadow-lg"
                 >
                   <span>{activeCompanion.emoji}</span>
                   <span>تغییر همراه ({activeCompanion.name}) 🔄</span>
                 </button>
-                <span className="text-xs text-indigo-200">{activeCompanion.desc}</span>
+                <span className="text-xs bg-black/40 backdrop-blur px-3 py-1 rounded-full border border-white/10 text-indigo-200">
+                  {activeCompanion.desc}
+                </span>
               </div>
 
-              {/* رندر انیمیشن ویدیو یا فریم‌ها به همراه ویجت تعاملی */}
-              <div className="py-2 relative z-10 flex justify-center">
-                <IllustratedFrameCharacter companion={activeCompanion} isStudying={isRunning} />
-              </div>
-
-              {!isRunning && (
-                <div className="flex items-center justify-center gap-2 mb-3 relative z-10">
-                  {[15, 25, 45, 60].map(m => (
-                    <button
-                      key={m}
-                      onClick={() => handleSetDuration(m)}
-                      className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition ${
-                        selectedMinutes === m ? 'bg-indigo-500 text-white shadow-md' : 'bg-white/10 text-slate-300 hover:bg-white/20'
-                      }`}
-                    >
-                      {m} دقیقه
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="text-center my-2 relative z-10">
-                <div className="text-5xl sm:text-6xl font-black font-mono tracking-widest text-white drop-shadow-md">
-                  {formatTime(timeLeft)}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-center gap-3 relative z-10 mt-4">
-                <button
-                  onClick={() => setIsRunning(!isRunning)}
-                  className={`px-8 py-3 rounded-2xl text-xs font-bold text-white shadow-xl transition-all ${
-                    isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/40'
-                  }`}
-                >
-                  {isRunning ? 'مکث مطالعه ⏸' : `شروع تمرکز با ${activeCompanion.name} ▶`}
-                </button>
-
-                {sessionSecondsPassed > 10 && (
-                  <button
-                    onClick={handleComplete}
-                    className="px-4 py-3 bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 rounded-2xl text-xs font-bold hover:bg-emerald-500/40 transition"
-                  >
-                    ثبت جلسه 💾
-                  </button>
+              <div className="relative z-10 space-y-4 text-center bg-black/30 backdrop-blur-sm p-5 rounded-3xl border border-white/10 shadow-2xl">
+                {!isRunning && (
+                  <div className="flex items-center justify-center gap-2">
+                    {[15, 25, 45, 60].map(m => (
+                      <button
+                        key={m}
+                        onClick={() => handleSetDuration(m)}
+                        className={`text-xs px-3.5 py-1.5 rounded-xl font-bold transition ${
+                          selectedMinutes === m ? 'bg-indigo-500 text-white shadow-md' : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                        }`}
+                      >
+                        {m} دقیقه
+                      </button>
+                    ))}
+                  </div>
                 )}
 
-                <button
-                  onClick={handleReset}
-                  className="p-3 bg-white/10 hover:bg-white/20 text-white/80 rounded-2xl border border-white/10 text-xs"
-                >
-                  🔄
-                </button>
+                <div>
+                  <div className="text-5xl sm:text-6xl font-black font-mono tracking-widest text-white drop-shadow-lg">
+                    {formatTime(timeLeft)}
+                  </div>
+                  <div className="text-[11px] text-indigo-200 mt-1">روی ویدیو کلیک یا لمس کن تا همراهت واکنش نشان دهد 👆</div>
+                </div>
+
+                <div className="flex items-center justify-center gap-3">
+                  <button
+                    onClick={() => setIsRunning(!isRunning)}
+                    className={`px-8 py-3 rounded-2xl text-xs font-bold text-white shadow-xl transition-all ${
+                      isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/40'
+                    }`}
+                  >
+                    {isRunning ? 'مکث مطالعه ⏸' : `شروع تمرکز با ${activeCompanion.name} ▶`}
+                  </button>
+
+                  {sessionSecondsPassed > 10 && (
+                    <button
+                      onClick={handleComplete}
+                      className="px-4 py-3 bg-emerald-500/40 text-emerald-200 border border-emerald-400/40 rounded-2xl text-xs font-bold hover:bg-emerald-500/50 transition"
+                    >
+                      ثبت جلسه 💾
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleReset}
+                    className="p-3 bg-white/15 hover:bg-white/25 text-white rounded-2xl border border-white/20 text-xs"
+                  >
+                    🔄
+                  </button>
+                </div>
               </div>
             </div>
           )}
 
-          {/* نوار صداهای طبیعی محیط */}
           <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-sm space-y-3">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-slate-700 flex items-center gap-1.5">
@@ -437,7 +460,6 @@
       );
     }
 
-    // ساختار کامل برنامه
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
       const [checkingAuth, setCheckingAuth] = useState(true);
@@ -806,7 +828,9 @@
 
       return (
         <div className="min-h-screen flex bg-[#FAF9FD] relative">
-          {/* سایدبار کامل */}
+          {/* ویجت شناور زنده‌ی همراهان */}
+          <FloatingLivingPetsWidget activeCompanion={activeCompanion} setActiveCompanion={setActiveCompanion} />
+
           <aside className="hidden md:flex flex-col w-64 bg-white border-l border-slate-200/80 p-6 justify-between fixed top-0 bottom-0 right-0 z-20">
             <div className="space-y-6">
               <div className="flex items-center gap-3">
@@ -948,7 +972,6 @@
             </div>
           </main>
 
-          {/* نوار پایین موبایل */}
           <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex items-center justify-around px-1 z-30">
             {[
               { id: 'dashboard', label: 'خانه', icon: '🏠' },
