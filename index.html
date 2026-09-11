@@ -86,7 +86,7 @@
         title: 'گربه آرام و کامواباف', 
         emoji: '🐱', 
         desc: 'بافتن شال‌گردن حین مطالعه شما',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/milo.mp4',
+        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/milo.mp4',
         messages: ['میو! کنارتم تا شال‌گردنت رو ببافم 🧶', 'عالی پیش میری، خسته نباشی مربی! 🐾']
       },
       { 
@@ -95,7 +95,7 @@
         title: 'جغد کتابخوان در کلبه', 
         emoji: '🦉', 
         desc: 'ورق زدن کتاب با عینک مطالعه',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Hodhod.mp4',
+        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Hodhod.mp4',
         messages: ['دانش با هر ورق کتاب عمیق‌تر میشه 📖', 'تمرکزت ستودنیه، هوهود! ✨']
       },
       { 
@@ -104,7 +104,7 @@
         title: 'روباه دنج در حال مطالعه', 
         emoji: '🦊', 
         desc: 'یادداشت‌برداری زیر درخت بید مجنون',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Moca.mp4',
+        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Moca.mp4',
         messages: ['یه تیکه نون تست با مربای توت‌فرنگی مهمون من 🍓', 'بوی چای و کتاب توی جنگل پیچیده ☕']
       },
       { 
@@ -113,7 +113,7 @@
         title: 'گیاه زنده در حال رشد', 
         emoji: '🌱', 
         desc: 'رشد ساقه و باز شدن شکوفه‌ها',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Javane.mp4',
+        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Javane.mp4',
         messages: ['با هر دقیقه تمرکزت یک برگ تازه باز میشه 🌱', 'نور خورشید و ریتم تو باعث رشد منه ☀️']
       },
       { 
@@ -122,7 +122,7 @@
         title: 'ابر مهربان بارانی', 
         emoji: '☁️', 
         desc: 'بارش قطرات کریستالی آرامش',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Luna.mp4',
+        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Luna.mp4',
         messages: ['قطرات آرامش دارن هوای اتاق رو خنک میکنن 🌧️', 'عمیق نفس بکش، لونا اینجاست ☁️']
       },
       { 
@@ -131,12 +131,11 @@
         title: 'دستیار رباتیک متمرکز', 
         emoji: '🤖', 
         desc: 'اسکن زمان و نمایش قلب دیجیتال',
-        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Robot.mp4',
+        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Robot.mp4',
         messages: ['بازدهی سیستم روی حالت ایده‌آل قرار داره بیبی 🤖', 'قلب دیجیتالم برای پیشرفتت می‌تپه ♥']
       }
     ];
 
-    // ویجت شناور زنده‌ی همراهان در گوشه صفحه
     function FloatingLivingPetsWidget({ activeCompanion, setActiveCompanion }) {
       const [currentMsg, setCurrentMsg] = useState(null);
       const [activeId, setActiveId] = useState(null);
@@ -162,7 +161,6 @@
             const isSelected = activeId === comp.id;
             return (
               <div key={comp.id} className="relative group">
-                {/* حباب پیام تعاملی */}
                 {isSelected && currentMsg && (
                   <div className="absolute left-14 bottom-0 bg-white text-indigo-900 font-bold text-xs px-4 py-2 rounded-2xl shadow-xl border border-indigo-200 whitespace-nowrap animate-bounce z-50">
                     {currentMsg}
@@ -198,10 +196,11 @@
       };
 
       return (
-        <div className="absolute inset-0 w-full h-full overflow-hidden z-0 select-none">
+        <div className="absolute inset-0 w-full h-full overflow-hidden z-0 select-none bg-black">
           {companion.videoUrl ? (
             <div className="w-full h-full relative cursor-pointer" onClick={handlePetClick}>
               <video 
+                key={companion.videoUrl}
                 src={companion.videoUrl} 
                 autoPlay 
                 loop 
@@ -209,7 +208,7 @@
                 playsInline 
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-black/30 pointer-events-none"></div>
+              <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
             </div>
           ) : (
             <div className="w-full h-full bg-slate-900 flex items-center justify-center text-7xl">
@@ -349,23 +348,23 @@
               </div>
             </div>
           ) : (
-            <div className="cozy-night-room rounded-3xl h-[480px] sm:h-[540px] text-white shadow-2xl relative flex flex-col justify-between p-6 sm:p-8 border border-indigo-500/20">
+            <div className="cozy-night-room rounded-3xl h-[480px] sm:h-[540px] text-white shadow-2xl relative flex flex-col justify-between p-6 sm:p-8 border border-indigo-500/25">
               <IllustratedFrameCharacter companion={activeCompanion} />
 
               <div className="flex items-center justify-between relative z-10">
                 <button
                   onClick={() => setIsSelecting(true)}
-                  className="text-xs bg-black/40 backdrop-blur hover:bg-black/60 px-4 py-2 rounded-full border border-white/20 font-bold flex items-center gap-2 transition text-white shadow-lg"
+                  className="text-xs bg-black/50 backdrop-blur hover:bg-black/70 px-4 py-2 rounded-full border border-white/20 font-bold flex items-center gap-2 transition text-white shadow-lg"
                 >
                   <span>{activeCompanion.emoji}</span>
                   <span>تغییر همراه ({activeCompanion.name}) 🔄</span>
                 </button>
-                <span className="text-xs bg-black/40 backdrop-blur px-3 py-1 rounded-full border border-white/10 text-indigo-200">
+                <span className="text-xs bg-black/50 backdrop-blur px-3 py-1 rounded-full border border-white/10 text-indigo-200">
                   {activeCompanion.desc}
                 </span>
               </div>
 
-              <div className="relative z-10 space-y-4 text-center bg-black/30 backdrop-blur-sm p-5 rounded-3xl border border-white/10 shadow-2xl">
+              <div className="relative z-10 space-y-4 text-center bg-black/40 backdrop-blur-md p-5 rounded-3xl border border-white/15 shadow-2xl">
                 {!isRunning && (
                   <div className="flex items-center justify-center gap-2">
                     {[15, 25, 45, 60].map(m => (
@@ -386,7 +385,7 @@
                   <div className="text-5xl sm:text-6xl font-black font-mono tracking-widest text-white drop-shadow-lg">
                     {formatTime(timeLeft)}
                   </div>
-                  <div className="text-[11px] text-indigo-200 mt-1">روی ویدیو کلیک یا لمس کن تا همراهت واکنش نشان دهد 👆</div>
+                  <div className="text-[11px] text-indigo-200 mt-1">روی تصویر کلیک یا لمس کن تا همراهت واکنش نشان دهد 👆</div>
                 </div>
 
                 <div className="flex items-center justify-center gap-3">
@@ -828,7 +827,6 @@
 
       return (
         <div className="min-h-screen flex bg-[#FAF9FD] relative">
-          {/* ویجت شناور زنده‌ی همراهان */}
           <FloatingLivingPetsWidget activeCompanion={activeCompanion} setActiveCompanion={setActiveCompanion} />
 
           <aside className="hidden md:flex flex-col w-64 bg-white border-l border-slate-200/80 p-6 justify-between fixed top-0 bottom-0 right-0 z-20">
