@@ -41,9 +41,10 @@
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
 
     .cozy-night-room {
+      background: linear-gradient(135deg, #312e81 0%, #1e1b4b 50%, #0f172a 100%);
+      box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.6);
       position: relative;
       overflow: hidden;
-      box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.5);
     }
   </style>
 </head>
@@ -85,8 +86,7 @@
         name: 'میلو', 
         title: 'گربه آرام و کامواباف', 
         emoji: '🐱', 
-        desc: 'بافتن شال‌گردن حین مطالعه شما',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/milo.mp4',
+        bgGradient: 'from-amber-600/30 to-orange-900/50',
         messages: ['میو! کنارتم تا شال‌گردنت رو ببافم 🧶', 'عالی پیش میری، خسته نباشی مربی! 🐾']
       },
       { 
@@ -94,17 +94,15 @@
         name: 'هدهد دانا', 
         title: 'جغد کتابخوان در کلبه', 
         emoji: '🦉', 
-        desc: 'ورق زدن کتاب با عینک مطالعه',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Hodhod.mp4',
+        bgGradient: 'from-amber-800/30 to-slate-900/60',
         messages: ['دانش با هر ورق کتاب عمیق‌تر میشه 📖', 'تمرکزت ستودنیه، هوهود! ✨']
       },
       { 
         id: 'mocha', 
         name: 'موکا', 
-        title: 'روباه دنج در حال مطالعه', 
+        title: 'روباه دنج زیر درخت بید مجنون', 
         emoji: '🦊', 
-        desc: 'یادداشت‌برداری زیر درخت بید مجنون',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Moca.mp4',
+        bgGradient: 'from-emerald-800/30 to-amber-950/60',
         messages: ['یه تیکه نون تست با مربای توت‌فرنگی مهمون من 🍓', 'بوی چای و کتاب توی جنگل پیچیده ☕']
       },
       { 
@@ -112,8 +110,7 @@
         name: 'جوانه', 
         title: 'گیاه زنده در حال رشد', 
         emoji: '🌱', 
-        desc: 'رشد ساقه و باز شدن شکوفه‌ها',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Javane.mp4',
+        bgGradient: 'from-emerald-600/30 to-slate-900/60',
         messages: ['با هر دقیقه تمرکزت یک برگ تازه باز میشه 🌱', 'نور خورشید و ریتم تو باعث رشد منه ☀️']
       },
       { 
@@ -121,8 +118,7 @@
         name: 'لونا', 
         title: 'ابر مهربان بارانی', 
         emoji: '☁️', 
-        desc: 'بارش قطرات کریستالی آرامش',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Luna.mp4',
+        bgGradient: 'from-indigo-600/30 to-blue-950/60',
         messages: ['قطرات آرامش دارن هوای اتاق رو خنک میکنن 🌧️', 'عمیق نفس بکش، لونا اینجاست ☁️']
       },
       { 
@@ -130,8 +126,7 @@
         name: 'کوچولو', 
         title: 'دستیار رباتیک متمرکز', 
         emoji: '🤖', 
-        desc: 'اسکن زمان و نمایش قلب دیجیتال',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Robot.mp4',
+        bgGradient: 'from-sky-600/30 to-slate-950/60',
         messages: ['بازدهی سیستم روی حالت ایده‌آل قرار داره بیبی 🤖', 'قلب دیجیتالم برای پیشرفتت می‌تپه ♥']
       }
     ];
@@ -182,49 +177,6 @@
       );
     }
 
-    function IllustratedFrameCharacter({ companion }) {
-      const [petMessage, setPetMessage] = useState(null);
-      const [isBouncing, setIsBouncing] = useState(false);
-
-      const handlePetClick = () => {
-        setIsBouncing(true);
-        const msgs = companion.messages || ['سلام مربی! کنارتم 🌸', 'خسته نباشي، عالی پیش میری! ✨'];
-        const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
-        setPetMessage(randomMsg);
-        setTimeout(() => setIsBouncing(false), 500);
-        setTimeout(() => setPetMessage(null), 3500);
-      };
-
-      return (
-        <div className="absolute inset-0 w-full h-full overflow-hidden z-0 select-none bg-black">
-          {companion.videoUrl ? (
-            <div className="w-full h-full relative cursor-pointer" onClick={handlePetClick}>
-              <video 
-                key={companion.videoUrl}
-                src={companion.videoUrl} 
-                autoPlay 
-                loop 
-                muted 
-                playsInline 
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
-            </div>
-          ) : (
-            <div className="w-full h-full bg-slate-900 flex items-center justify-center text-7xl">
-              {companion.emoji}
-            </div>
-          )}
-
-          {petMessage && (
-            <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur text-indigo-900 font-bold text-xs px-5 py-2.5 rounded-2xl shadow-2xl border border-indigo-200 animate-bounce z-40">
-              {petMessage}
-            </div>
-          )}
-        </div>
-      );
-    }
-
     function FocusRoomView({ activeCompanion, setActiveCompanion, onSessionSaved }) {
       const [isSelecting, setIsSelecting] = useState(false);
       const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -233,6 +185,7 @@
       const [sessionSecondsPassed, setSessionSecondsPassed] = useState(0);
       const [activeSound, setActiveSound] = useState('rain');
       const [volume, setVolume] = useState(0.5);
+      const [petMessage, setPetMessage] = useState(null);
       const audioRef = useRef(null);
 
       const SOUNDS = {
@@ -293,19 +246,6 @@
           timestamp: new Date().toISOString()
         });
 
-        if (supabaseClient) {
-          try {
-            const { data: { user } } = await supabaseClient.auth.getUser();
-            if (user) {
-              await supabaseClient.from('study_sessions').insert([{
-                user_id: user.id,
-                duration_minutes: mins,
-                buddy_id: activeCompanion.id
-              }]);
-            }
-          } catch (e) {}
-        }
-
         alert(`آفرین! ${mins} دقیقه تمرکز عمیق همراه با ${activeCompanion.name} ثبت شد ✨`);
         if (onSessionSaved) onSessionSaved();
         handleReset();
@@ -315,6 +255,13 @@
         const m = Math.floor(secs / 60).toString().padStart(2, '0');
         const s = (secs % 60).toString().padStart(2, '0');
         return `${m}:${s}`;
+      };
+
+      const handleCharacterClick = () => {
+        const msgs = activeCompanion.messages || ['سلام مربی! کنارتم 🌸', 'عالی پیش میری! ✨'];
+        const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
+        setPetMessage(randomMsg);
+        setTimeout(() => setPetMessage(null), 3500);
       };
 
       return (
@@ -348,22 +295,43 @@
               </div>
             </div>
           ) : (
-            <div className="cozy-night-room rounded-3xl h-[480px] sm:h-[540px] text-white shadow-2xl relative flex flex-col justify-between p-6 sm:p-8 border border-indigo-500/25">
-              <IllustratedFrameCharacter companion={activeCompanion} />
+            <div className={`cozy-night-room rounded-3xl h-[520px] sm:h-[580px] text-white shadow-2xl relative flex flex-col justify-between p-6 sm:p-8 border border-indigo-500/30 bg-gradient-to-br ${activeCompanion.bgGradient}`}>
+              
+              {/* حباب دیالوگ تعاملی */}
+              {petMessage && (
+                <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-white text-indigo-950 font-bold text-xs px-5 py-2.5 rounded-2xl shadow-2xl border border-indigo-200 animate-bounce z-50">
+                  {petMessage}
+                </div>
+              )}
 
+              {/* بالا: تغییر همراه */}
               <div className="flex items-center justify-between relative z-10">
                 <button
                   onClick={() => setIsSelecting(true)}
-                  className="text-xs bg-black/50 backdrop-blur hover:bg-black/70 px-4 py-2 rounded-full border border-white/20 font-bold flex items-center gap-2 transition text-white shadow-lg"
+                  className="text-xs bg-black/40 backdrop-blur hover:bg-black/60 px-4 py-2 rounded-full border border-white/20 font-bold flex items-center gap-2 transition text-white shadow-lg"
                 >
                   <span>{activeCompanion.emoji}</span>
                   <span>تغییر همراه ({activeCompanion.name}) 🔄</span>
                 </button>
-                <span className="text-xs bg-black/50 backdrop-blur px-3 py-1 rounded-full border border-white/10 text-indigo-200">
+                <span className="text-xs bg-black/40 backdrop-blur px-3 py-1 rounded-full border border-white/10 text-indigo-200">
                   {activeCompanion.desc}
                 </span>
               </div>
 
+              {/* وسط: کاراکتر زنده پیکساری با قابلیت کلیک تعاملی */}
+              <div className="flex flex-col items-center justify-center relative z-10 my-auto cursor-pointer group" onClick={handleCharacterClick}>
+                <div className="text-7xl sm:text-8xl mb-2 transition-transform duration-300 group-hover:scale-125 animate-pulse drop-shadow-2xl">
+                  {activeCompanion.emoji}
+                </div>
+                <h2 className="text-base sm:text-lg font-black tracking-wide text-white drop-shadow-md">
+                  {activeCompanion.name} ({activeCompanion.title})
+                </h2>
+                <span className="text-[11px] text-indigo-200 mt-1 bg-black/30 px-3 py-1 rounded-full border border-white/10">
+                  برای دریافت پیام محبت‌آمیز لمس کن 👆
+                </span>
+              </div>
+
+              {/* پایین: پنل زمان و کنترل */}
               <div className="relative z-10 space-y-4 text-center bg-black/40 backdrop-blur-md p-5 rounded-3xl border border-white/15 shadow-2xl">
                 {!isRunning && (
                   <div className="flex items-center justify-center gap-2">
@@ -385,7 +353,6 @@
                   <div className="text-5xl sm:text-6xl font-black font-mono tracking-widest text-white drop-shadow-lg">
                     {formatTime(timeLeft)}
                   </div>
-                  <div className="text-[11px] text-indigo-200 mt-1">روی تصویر کلیک یا لمس کن تا همراهت واکنش نشان دهد 👆</div>
                 </div>
 
                 <div className="flex items-center justify-center gap-3">
