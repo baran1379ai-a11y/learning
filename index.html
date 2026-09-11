@@ -79,19 +79,68 @@
     }
 
     const COMPANIONS = [
-      { id: 'milo', name: 'میلو', title: 'گربه آرام و کامواباف', emoji: '🐱', desc: 'بافتن شال‌گردن حین مطالعه شما' },
-      { id: 'hooty', name: 'هدهد دانا', title: 'جغد کتابخوان در کلبه', emoji: '🦉', desc: 'ورق زدن کتاب با عینک مطالعه' },
-      { id: 'mocha', name: 'موکا', title: 'پاندای آرام با چای گرم', emoji: '🦊', desc: 'یادداشت‌برداری و نوشیدن چای' },
-      { id: 'sprout', name: 'جوانه', title: 'گیاه زنده در حال رشد', emoji: '🌱', desc: 'رشد ساقه و باز شدن شکوفه‌ها' },
-      { id: 'luna', name: 'لونا', title: 'ابر مهربان بارانی', emoji: '☁️', desc: 'بارش قطرات کریستالی آرامش' },
-      { id: 'botty', name: 'کوچولو', title: 'دستیار رباتیک متمرکز', emoji: '🤖', desc: 'اسکن زمان و نمایش قلب دیجیتال' }
+      { 
+        id: 'milo', 
+        name: 'میلو', 
+        title: 'گربه آرام و کامواباف', 
+        emoji: '🐱', 
+        desc: 'بافتن شال‌گردن حین مطالعه شما',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/milo.mp4.mp4',
+        messages: ['میو! کنارتم تا شال‌گردنت رو ببافم 🧶', 'عالی پیش میری، خسته نباشی مربی! 🐾']
+      },
+      { 
+        id: 'hooty', 
+        name: 'هدهد دانا', 
+        title: 'جغد کتابخوان در کلبه', 
+        emoji: '🦉', 
+        desc: 'ورق زدن کتاب با عینک مطالعه',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Hodhod.mp4.mp4',
+        messages: ['دانش با هر ورق کتاب عمیق‌تر میشه 📖', 'تمرکزت ستودنیه، هوهود! ✨']
+      },
+      { 
+        id: 'mocha', 
+        name: 'موکا', 
+        title: 'روباه دنج در حال مطالعه', 
+        emoji: '🦊', 
+        desc: 'یادداشت‌برداری زیر درخت بید مجنون',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Moca.mp4.mp4',
+        messages: ['یه تیکه نون تست با مربای توت‌فرنگی مهمون من 🍓', 'بوی چای و کتاب توی جنگل پیچیده ☕']
+      },
+      { 
+        id: 'sprout', 
+        name: 'جوانه', 
+        title: 'گیاه زنده در حال رشد', 
+        emoji: '🌱', 
+        desc: 'رشد ساقه و باز شدن شکوفه‌ها',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Javane.mp4.mp4',
+        messages: ['با هر دقیقه تمرکزت یک برگ تازه باز میشه 🌱', 'نور خورشید و ریتم تو باعث رشد منه ☀️']
+      },
+      { 
+        id: 'luna', 
+        name: 'لونا', 
+        title: 'ابر مهربان بارانی', 
+        emoji: '☁️', 
+        desc: 'بارش قطرات کریستالی آرامش',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Luna.mp4.mp4',
+        messages: ['قطرات آرامش دارن هوای اتاق رو خنک میکنن 🌧️', 'عمیق نفس بکش، لونا اینجاست ☁️']
+      },
+      { 
+        id: 'botty', 
+        name: 'کوچولو', 
+        title: 'دستیار رباتیک متمرکز', 
+        emoji: '🤖', 
+        desc: 'اسکن زمان و نمایش قلب دیجیتال',
+        videoUrl: 'https://github.com/baran1379ai-a11y/my-study-videos/raw/refs/heads/main/Robot.mp4.mp4',
+        messages: ['بازدهی سیستم روی حالت ایده‌آل قرار داره بیبی 🤖', 'قلب دیجیتالم برای پیشرفتت می‌تپه ♥']
+      }
     ];
 
-    // کامپوننت رندر زنده فریم‌به‌فریم ۶ کاراکتر تصویرسازی‌شده
-    function IllustratedFrameCharacter({ companionId, isStudying }) {
+    // کامپوننت هوشمند پخش ویدیو یا فریم‌های تعاملی همراهان همراه با ویجت زنده
+    function IllustratedFrameCharacter({ companion, isStudying }) {
       const [frame, setFrame] = useState(0);
+      const [petMessage, setPetMessage] = useState(null);
+      const [isBouncing, setIsBouncing] = useState(false);
 
-      // موتور سوئیچ فریم‌های انیمیشن
       useEffect(() => {
         if (!isStudying) {
           setFrame(0);
@@ -103,276 +152,52 @@
         return () => clearInterval(timer);
       }, [isStudying]);
 
-      // ۱. میلو (گربه کامواباف)
-      if (companionId === 'milo') {
-        return (
-          <div className="flex flex-col items-center justify-center py-2 select-none">
-            <svg width="220" height="200" viewBox="0 0 240 210" fill="none">
-              {/* کاناپه گرم و نرم */}
-              <rect x="25" y="125" width="190" height="65" rx="24" fill="#fda4af" opacity="0.3" />
-              <rect x="35" y="110" width="40" height="70" rx="16" fill="#fb7185" opacity="0.25" />
-              <rect x="165" y="110" width="40" height="70" rx="16" fill="#fb7185" opacity="0.25" />
-              
-              {/* دم گربه */}
-              <path d="M45,160 Q15,140 25,100" stroke="#f59e0b" strokeWidth="12" strokeLinecap="round" fill="none"/>
-              
-              {/* بدن و سر میلو */}
-              <ellipse cx="120" cy="140" rx="52" ry="44" fill="#fbbf24" />
-              <polygon points="85,85 100,50 112,82" fill="#f59e0b" />
-              <polygon points="128,82 140,50 155,85" fill="#f59e0b" />
-              <circle cx="120" cy="95" r="38" fill="#fbbf24" />
-              
-              {/* چشم‌ها بر اساس فریم */}
-              {frame === 0 ? (
-                <g fill="#78350f">
-                  <circle cx="106" cy="94" r="4" />
-                  <circle cx="134" cy="94" r="4" />
-                </g>
-              ) : (
-                <g stroke="#78350f" strokeWidth="2.5" strokeLinecap="round" fill="none">
-                  <path d="M100,94 Q106,88 112,94" />
-                  <path d="M128,94 Q134,88 140,94" />
-                </g>
-              )}
-              <polygon points="120,101 116,106 124,106" fill="#f43f5e" />
+      const handlePetClick = () => {
+        setIsBouncing(true);
+        const msgs = companion.messages || ['سلام مربی! کنارتم 🌸', 'خسته نباشي، عالی پیش میری! ✨'];
+        const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
+        setPetMessage(randomMsg);
+        setTimeout(() => setIsBouncing(false), 500);
+        setTimeout(() => setPetMessage(null), 3500);
+      };
 
-              {/* کلاف کاموای قرمز و شال‌گردن بافته‌شده */}
-              <circle cx="168" cy="165" r="20" fill="#e11d48" />
-              <path d="M150,160 Q135,145 120,150" stroke="#e11d48" strokeWidth="5" fill="none"/>
-
-              {/* میل‌های بافتنی در سه پوز حرکتی فریم‌به‌فریم */}
-              {frame === 0 && (
-                <g stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round">
-                  <line x1="95" y1="130" x2="120" y2="155" />
-                  <line x1="145" y1="130" x2="120" y2="155" />
-                  <circle cx="95" cy="130" r="4" fill="#f43f5e" />
-                  <circle cx="145" cy="130" r="4" fill="#f43f5e" />
-                </g>
-              )}
-              {frame === 1 && (
-                <g stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round">
-                  <line x1="98" y1="125" x2="116" y2="152" />
-                  <line x1="140" y1="135" x2="124" y2="152" />
-                  <circle cx="98" cy="125" r="4" fill="#f43f5e" />
-                  <circle cx="140" cy="135" r="4" fill="#f43f5e" />
-                </g>
-              )}
-              {frame === 2 && (
-                <g stroke="#cbd5e1" strokeWidth="4" strokeLinecap="round">
-                  <line x1="92" y1="135" x2="122" y2="150" />
-                  <line x1="144" y1="122" x2="118" y2="150" />
-                  <circle cx="92" cy="135" r="4" fill="#f43f5e" />
-                  <circle cx="144" cy="122" r="4" fill="#f43f5e" />
-                </g>
-              )}
-            </svg>
-            <span className="text-xs text-amber-200 mt-1 font-bold">
-              {frame === 0 ? '🧶 میلو در حال استراحت...' : '🧶 میلو در حال بافتن رج جدید کاموا'}
-            </span>
-          </div>
-        );
-      }
-
-      // ۲. هدهد دانا (جغد کلبه و کتاب ورق‌خور)
-      if (companionId === 'hooty') {
-        return (
-          <div className="flex flex-col items-center justify-center py-2 select-none">
-            <svg width="220" height="190" viewBox="0 0 240 200" fill="none">
-              {/* بدنه جغد و بال‌ها */}
-              <ellipse cx="120" cy="115" rx="46" ry="52" fill="#78350f" />
-              <ellipse cx="120" cy="125" rx="32" ry="38" fill="#fef3c7" />
-              <polygon points="85,65 100,45 108,70" fill="#92400e" />
-              <polygon points="132,70 140,45 155,65" fill="#92400e" />
-              
-              {/* عینک گرد طلایی */}
-              <circle cx="102" cy="94" r="17" fill="#ffffff" stroke="#d97706" strokeWidth="3" />
-              <circle cx="138" cy="94" r="17" fill="#ffffff" stroke="#d97706" strokeWidth="3" />
-              <line x1="119" y1="94" x2="121" y2="94" stroke="#d97706" strokeWidth="3"/>
-              
-              {/* جهت چشم‌ها بر اساس فریم و خطوط کتاب */}
-              <circle cx={frame === 1 ? 104 : 101} cy={frame === 2 ? 96 : 94} r="5" fill="#0f172a" />
-              <circle cx={frame === 1 ? 140 : 137} cy={frame === 2 ? 96 : 94} r="5" fill="#0f172a" />
-              <polygon points="120,104 116,111 124,111" fill="#ea580c" />
-            </svg>
-
-            {/* میز کلبه چوبی با انیمیشن ورق خوردن فریم‌به‌فریم کتاب */}
-            <div className="w-64 h-8 bg-amber-950 rounded-xl -mt-5 shadow-xl flex items-center justify-center relative border-t-2 border-amber-700">
-              <div className="absolute -top-4 flex items-center">
-                {/* صفحه چپ */}
-                <div className="w-11 h-7 bg-amber-50 rounded-l border-r border-slate-300 flex flex-col justify-center px-1.5 space-y-1">
-                  <div className="w-7 h-0.5 bg-slate-300 rounded"></div>
-                  <div className="w-5 h-0.5 bg-slate-300 rounded"></div>
-                </div>
-                
-                {/* صفحه راست متغیر با فریم */}
-                {frame === 0 && (
-                  <div className="w-11 h-7 bg-white rounded-r shadow flex flex-col justify-center px-1.5 space-y-1">
-                    <div className="w-6 h-0.5 bg-indigo-200 rounded"></div>
-                    <div className="w-4 h-0.5 bg-indigo-200 rounded"></div>
-                  </div>
-                )}
-                {frame === 1 && (
-                  <div className="w-7 h-7 bg-indigo-50 border-r border-indigo-200 shadow-lg -skew-y-6 flex flex-col justify-center px-1">
-                    <div className="w-4 h-0.5 bg-indigo-300 rounded"></div>
-                  </div>
-                )}
-                {frame === 2 && (
-                  <div className="w-11 h-7 bg-slate-50 rounded-r border-l border-indigo-200 flex flex-col justify-center px-1.5 space-y-1">
-                    <div className="w-7 h-0.5 bg-indigo-300 rounded"></div>
-                    <div className="w-5 h-0.5 bg-indigo-200 rounded"></div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <span className="text-xs text-amber-200 mt-2 font-bold">📖 هدهد دانا در حال خواندن خطوط رفرنس</span>
-          </div>
-        );
-      }
-
-      // ۳. موکا (پاندای روباهی با چای داغ و قلم)
-      if (companionId === 'mocha') {
-        return (
-          <div className="flex flex-col items-center justify-center py-2 select-none">
-            <svg width="210" height="190" viewBox="0 0 220 200" fill="none">
-              <ellipse cx="110" cy="135" rx="52" ry="46" fill="#ea580c" />
-              <polygon points="70,85 86,52 98,82" fill="#c2410c" />
-              <polygon points="122,82 134,52 150,85" fill="#c2410c" />
-              <circle cx="110" cy="100" r="42" fill="#ea580c" />
-              <polygon points="86,100 110,128 134,100" fill="#ffffff" />
-              <polygon points="110,110 106,115 114,115" fill="#0f172a" />
-              
-              {/* چشم‌ها و حالت چهره فریم‌به‌فریم */}
-              {frame === 0 ? (
-                <g fill="#0f172a">
-                  <circle cx="96" cy="100" r="4" />
-                  <circle cx="124" cy="100" r="4" />
-                </g>
-              ) : (
-                <g stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round" fill="none">
-                  <path d="M92,100 Q96,94 100,100" />
-                  <path d="M120,100 Q124,94 128,100" />
-                </g>
-              )}
-
-              {/* دست و قلم موکا */}
-              {frame !== 0 && (
-                <g transform={frame === 1 ? 'translate(0, -3)' : 'translate(2, 2)'}>
-                  <ellipse cx="138" cy="140" rx="9" ry="7" fill="#ffffff" stroke="#cbd5e1" strokeWidth="2" />
-                  <rect x="134" y="120" width="4" height="20" rx="1.5" transform="rotate(35 134 120)" fill="#fbbf24" />
-                </g>
-              )}
-            </svg>
-            
-            {/* میز چوبی با فنجان چای و بخار متحرک */}
-            <div className="w-64 h-8 bg-amber-950 rounded-xl -mt-5 shadow-xl flex items-center justify-between px-6 relative border-t-2 border-amber-700">
-              <div className="text-xs text-amber-200">دفترچه یادداشت 📝</div>
-              <div className="relative text-base">
-                <span>🍵</span>
-                {isStudying && (
-                  <span className={`absolute -top-3 left-1 text-[10px] text-amber-200 ${frame === 1 ? 'opacity-80 -translate-y-1' : 'opacity-40'}`}>
-                    ♨
-                  </span>
-                )}
-              </div>
-            </div>
-            <span className="text-xs text-amber-200 mt-2 font-bold">
-              {frame === 0 ? '☕ موکا کنار توست؛ نفس عمیق بکش' : '✍️ موکا در حال یادداشت نکات کلیدی است'}
-            </span>
-          </div>
-        );
-      }
-
-      // ۴. جوانه (گیاه رشد یابنده)
-      if (companionId === 'sprout') {
-        return (
-          <div className="flex flex-col items-center justify-center py-2 select-none">
-            <svg width="200" height="190" viewBox="0 0 200 200" fill="none">
-              {/* ساقه متحرک متناسب با فریم */}
-              <path 
-                d={frame === 0 ? "M100,140 Q100,90 98,60" : frame === 1 ? "M100,140 Q94,90 92,56" : "M100,140 Q106,90 104,56"} 
-                stroke="#16a34a" 
-                strokeWidth="8" 
-                strokeLinecap="round"
-              />
-              {/* برگ‌های رقصان */}
-              <path d={frame === 1 ? "M92,56 C70,46 65,66 90,72 Z" : "M98,60 C78,50 72,70 96,75 Z"} fill="#4ade80" />
-              <path d={frame === 2 ? "M104,56 C128,46 134,66 108,72 Z" : "M98,60 C120,50 126,70 102,75 Z"} fill="#22c55e" />
-              
-              {/* گل شکوفا شده در فریم ۳ */}
-              {isStudying && frame === 2 && (
-                <circle cx="104" cy="46" r="8" fill="#f43f5e" />
-              )}
-
-              {/* گلدان سفالی تراکوتا */}
-              <polygon points="68,140 132,140 122,185 78,185" fill="#ea580c" />
-              <rect x="62" y="132" width="76" height="10" rx="3" fill="#c2410c" />
-            </svg>
-            <span className="text-xs text-emerald-300 mt-1 font-bold">
-              {frame === 2 ? '🌸 آفرین! جوانه شکوفه داد!' : '🌱 جوانه با تمرکز تو رشد می‌کند'}
-            </span>
-          </div>
-        );
-      }
-
-      // ۵. لونا (ابر بارانی کریستالی)
-      if (companionId === 'luna') {
-        return (
-          <div className="flex flex-col items-center justify-center py-3 select-none">
-            <svg width="220" height="180" viewBox="0 0 240 190" fill="none">
-              <path d="M70,110 C50,110 40,98 46,85 C40,65 62,50 82,58 C96,38 135,38 152,55 C168,45 195,55 192,75 C206,85 200,110 180,110 Z" fill="#e0e7ff" stroke="#a5b4fc" strokeWidth="3.5"/>
-              <ellipse cx="98" cy="85" rx="6" ry="3.5" fill="#f472b6" opacity="0.6" />
-              <ellipse cx="150" cy="85" rx="6" ry="3.5" fill="#f472b6" opacity="0.6" />
-              <path d="M116,88 Q124,95 132,88" stroke="#4338ca" strokeWidth="3" strokeLinecap="round" fill="none"/>
-              <circle cx={frame === 1 ? 106 : 108} cy="80" r="3.5" fill="#312e81"/>
-              <circle cx={frame === 1 ? 138 : 140} cy="80" r="3.5" fill="#312e81"/>
-
-              {/* قطرات زنده باران فریم‌به‌فریم */}
-              {isStudying && (
-                <g stroke="#60a5fa" strokeWidth="3.5" strokeLinecap="round">
-                  {frame === 0 && <line x1="85" y1="120" x2="82" y2="132" />}
-                  {frame === 1 && <line x1="124" y1="122" x2="121" y2="136" />}
-                  {frame === 2 && <line x1="165" y1="120" x2="162" y2="134" />}
-                </g>
-              )}
-            </svg>
-            <span className="text-xs text-indigo-200 mt-1 font-bold">☁️ لونا باران آرامش را پخش می‌کند</span>
-          </div>
-        );
-      }
-
-      // ۶. کوچولو (ربات هوشمند اسکنر)
       return (
-        <div className="flex flex-col items-center justify-center py-2 select-none">
-          <svg width="200" height="190" viewBox="0 0 210 200" fill="none">
-            {/* آنتن با چراغ چشمک‌زن فریم‌به‌فریم */}
-            <line x1="105" y1="50" x2="105" y2="25" stroke="#94a3b8" strokeWidth="4" />
-            <circle cx="105" cy="22" r="9" fill={frame === 1 ? "#38bdf8" : "#0284c7"} />
-            
-            {/* سر ربات */}
-            <rect x="68" y="50" width="74" height="58" rx="18" fill="#334155" stroke="#64748b" strokeWidth="3"/>
-            <rect x="78" y="62" width="54" height="34" rx="10" fill="#0f172a" />
-            
-            {/* نمایشگر چشم‌ها بر اساس فریم */}
-            {frame === 2 ? (
-              <g fill="#f43f5e">
-                <text x="88" y="85" fontSize="16" fontWeight="bold">♥</text>
-                <text x="110" y="85" fontSize="16" fontWeight="bold">♥</text>
-              </g>
-            ) : (
-              <g fill="#38bdf8">
-                <rect x="86" y="74" width="12" height="6" rx="3" />
-                <rect x="112" y="74" width="12" height="6" rx="3" />
-              </g>
-            )}
+        <div className="flex flex-col items-center justify-center py-2 select-none relative">
+          {/* حباب دیالوگ زنده ویجت تعاملی */}
+          {petMessage && (
+            <div className="absolute -top-12 bg-white text-indigo-900 font-bold text-xs px-4 py-2 rounded-2xl shadow-xl border border-indigo-200 animate-bounce z-30">
+              {petMessage}
+            </div>
+          )}
 
-            {/* بدنه و دکمه‌های نورانی */}
-            <rect x="74" y="116" width="62" height="52" rx="16" fill="#475569" />
-            <circle cx="92" cy="134" r="4" fill={frame === 0 ? "#ef4444" : "#fee2e2"} />
-            <circle cx="105" cy="134" r="4" fill={frame === 1 ? "#eab308" : "#fef9c3"} />
-            <circle cx="118" cy="134" r="4" fill={frame === 2 ? "#22c55e" : "#dcfce7"} />
-          </svg>
-          <span className="text-xs text-sky-200 mt-1 font-bold">
-            {frame === 2 ? '🤖 ربات: بازدهی تمرکز ۱۰۰٪ ثبت شد!' : '🤖 کوچولو در حال اسکن دقایق مطالعه'}
+          <div 
+            onClick={handlePetClick}
+            className={`cursor-pointer transition-transform duration-300 ${isBouncing ? 'scale-110 -translate-y-2' : 'hover:scale-105'}`}
+            title="برای تعامل با همراه کلیک کن!"
+          >
+            {companion.videoUrl ? (
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl border-2 border-indigo-500/30 w-full max-w-sm aspect-video bg-black/40">
+                <video 
+                  src={companion.videoUrl} 
+                  autoPlay 
+                  loop 
+                  muted 
+                  playsInline 
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute bottom-2 right-2 bg-black/50 backdrop-blur text-[10px] text-white px-2 py-0.5 rounded-full">
+                  ویدیو زنده هوش مصنوعی ✨
+                </div>
+              </div>
+            ) : (
+              <div className="text-6xl my-4 p-6 bg-white/10 backdrop-blur rounded-full border border-white/20 shadow-inner">
+                {companion.emoji}
+              </div>
+            )}
+          </div>
+
+          <span className="text-xs text-indigo-200 mt-2 font-bold bg-white/10 px-3 py-1 rounded-full border border-white/10">
+            {companion.emoji} {companion.name} ({companion.title}) — لمس کن تا واکنش بدهد 👆
           </span>
         </div>
       );
@@ -514,9 +339,9 @@
                 <span className="text-xs text-indigo-200">{activeCompanion.desc}</span>
               </div>
 
-              {/* رندر انیمیشن فریم‌به‌فریم */}
-              <div className="py-2 relative z-10">
-                <IllustratedFrameCharacter companionId={activeCompanion.id} isStudying={isRunning} />
+              {/* رندر انیمیشن ویدیو یا فریم‌ها به همراه ویجت تعاملی */}
+              <div className="py-2 relative z-10 flex justify-center">
+                <IllustratedFrameCharacter companion={activeCompanion} isStudying={isRunning} />
               </div>
 
               {!isRunning && (
