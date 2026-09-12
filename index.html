@@ -66,6 +66,10 @@
       calendarEvents: 'id, title, date, impactLevel',
       profile: 'id, fullName, avatar, age, field, interests'
     });
+    db.version(4).stores({
+      tasks: 'id, pathId, topicId, status, priority, isVital, scheduledDate',
+      sessions: 'id, pathId, taskId, topicId, durationMinutes, timestamp'
+    });
 
     const SUPABASE_URL = 'https://lwsndcosdmjxkhnhjhwx.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_6cS5z3_zbFNr0HN0u3ZD9A_c5uVewyV';
