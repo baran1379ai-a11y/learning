@@ -1291,6 +1291,82 @@
       );
     }
 
+    function PathCardHeader({ path, triggerRefresh }) {
+      const [isEditing, setIsEditing] = useState(false);
+      const [editTitle, setEditTitle] = useState(path.title);
+      const [editGoal, setEditGoal] = useState(path.goal);
+
+      const handleSaveEdit = async (e) => {
+        e.preventDefault();
+        if (!editTitle.trim()) return;
+        await db.paths.update(path.id, { title: editTitle.trim(), goal: editGoal });
+        setIsEditing(false);
+        triggerRefresh();
+      };
+
+      const handleCancelEdit = () => {
+        setEditTitle(path.title);
+        setEditGoal(path.goal);
+        setIsEditing(false);
+      };
+
+      const handleDelete = async () => {
+        const confirmed = window.confirm('آیا مطمئنی می‌خواهی این مسیر را حذف کنی؟ مباحث، تسک‌ها و اهداف این مسیر نیز حذف خواهند شد.');
+        if (!confirmed) return;
+        await db.topics.where('pathId').equals(path.id).delete();
+        await db.tasks.where('pathId').equals(path.id).delete();
+        await db.goals.where('pathId').equals(path.id).delete();
+        await db.paths.delete(path.id);
+        triggerRefresh();
+      };
+
+      if (isEditing) {
+        return (
+          <form onSubmit={handleSaveEdit} className="space-y-2">
+            <input
+              type="text"
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              placeholder="عنوان مسیر..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-indigo-600"
+              required
+            />
+            <input
+              type="text"
+              value={editGoal}
+              onChange={e => setEditGoal(e.target.value)}
+              placeholder="هدف کلی..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-indigo-600"
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={handleCancelEdit} className="text-slate-400 px-3 text-xs">لغو</button>
+              <button type="submit" className="bg-indigo-600 text-white font-bold px-4 py-2 rounded-xl hover:bg-indigo-700 text-xs">ذخیره</button>
+            </div>
+          </form>
+        );
+      }
+
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-2xl">{path.icon}</span>
+              <h3 className="font-bold text-slate-800 text-sm truncate">{path.title}</h3>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={() => setIsEditing(true)} className="text-[11px] font-bold text-indigo-600 hover:underline">
+                ✏️ ویرایش
+              </button>
+              <button onClick={handleDelete} className="text-[11px] font-bold text-rose-500 hover:underline">
+                🗑️ حذف
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-slate-400">{path.goal}</p>
+        </div>
+      );
+    }
+
     function PathGoalsSection({ path, goals, triggerRefresh }) {
       const [showAddGoal, setShowAddGoal] = useState(false);
       const [goalTitle, setGoalTitle] = useState('');
@@ -1502,11 +1578,7 @@
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {paths.map(p => (
               <div key={p.id} className="bg-white p-5 rounded-3xl border shadow-sm space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{p.icon}</span>
-                  <h3 className="font-bold text-slate-800 text-sm">{p.title}</h3>
-                </div>
-                <p className="text-xs text-slate-400">{p.goal}</p>
+                <PathCardHeader path={p} triggerRefresh={triggerRefresh} />
                 <PathTopicsSection path={p} topics={topics} triggerRefresh={triggerRefresh} />
                 <PathGoalsSection path={p} goals={goals} triggerRefresh={triggerRefresh} />
               </div>
