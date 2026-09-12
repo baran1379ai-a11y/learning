@@ -1291,6 +1291,85 @@
       );
     }
 
+    function PathTopicsSection({ path, topics, triggerRefresh }) {
+      const [showAddTopic, setShowAddTopic] = useState(false);
+      const [topicTitle, setTopicTitle] = useState('');
+
+      const pathTopics = topics.filter(t => t.pathId === path.id);
+
+      const handleAddTopic = async (e) => {
+        e.preventDefault();
+        if (!topicTitle.trim()) return;
+        await db.topics.add({
+          id: 'topic-' + Date.now(),
+          pathId: path.id,
+          title: topicTitle.trim(),
+          mastery: 0,
+          isWeak: false,
+          resourceId: null,
+          prereqTopicId: null
+        });
+        setTopicTitle('');
+        setShowAddTopic(false);
+        triggerRefresh();
+      };
+
+      const handleDeleteTopic = async (topicId) => {
+        await db.topics.delete(topicId);
+        triggerRefresh();
+      };
+
+      return (
+        <div className="pt-3 mt-3 border-t border-slate-100 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500">مباحث این مسیر</span>
+            <button
+              onClick={() => setShowAddTopic(s => !s)}
+              className="text-[11px] font-bold text-indigo-600 hover:underline"
+            >
+              {showAddTopic ? 'بستن' : '+ افزودن مبحث'}
+            </button>
+          </div>
+
+          {showAddTopic && (
+            <form onSubmit={handleAddTopic} className="flex items-center gap-2">
+              <input
+                type="text"
+                autoFocus
+                placeholder="عنوان مبحث..."
+                value={topicTitle}
+                onChange={e => setTopicTitle(e.target.value)}
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:outline-none focus:border-indigo-600"
+              />
+              <button type="submit" className="bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-indigo-700 transition">
+                ثبت
+              </button>
+            </form>
+          )}
+
+          {pathTopics.length === 0 ? (
+            <div className="text-[11px] text-slate-400 py-2">
+              هنوز مبحثی برای این مسیر اضافه نشده
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {pathTopics.map(t => (
+                <div key={t.id} className="flex items-center justify-between bg-slate-50/70 border border-slate-100 rounded-xl px-3 py-2 text-xs">
+                  <span className="font-bold text-slate-700">{t.title}</span>
+                  <button
+                    onClick={() => handleDeleteTopic(t.id)}
+                    className="text-rose-500 text-[11px] font-bold hover:underline"
+                  >
+                    حذف
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     function PathsUniversalView({ paths, topics, triggerRefresh }) {
       const [showModal, setShowModal] = useState(false);
       const [title, setTitle] = useState('');
@@ -1333,6 +1412,7 @@
                   <h3 className="font-bold text-slate-800 text-sm">{p.title}</h3>
                 </div>
                 <p className="text-xs text-slate-400">{p.goal}</p>
+                <PathTopicsSection path={p} topics={topics} triggerRefresh={triggerRefresh} />
               </div>
             ))}
           </div>
