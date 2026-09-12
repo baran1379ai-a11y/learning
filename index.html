@@ -180,6 +180,57 @@
       };
     }
 
+    // Pure helper — derives a Learning Path's Journey from REAL Topics/Tasks.
+    // No new Dexie table: the Journey is always computed, never stored, so it
+    // can never drift from the actual data and never needs its own migration.
+    //
+    // Topic order: Topics have no explicit order field. Their id is always
+    // 'topic-' + Date.now(), so ascending string sort on id is equivalent to
+    // ascending creation-time order (a stable, persisted fallback) without
+    // adding a new field, per the "don't add an ordering field unless
+    // absolutely necessary" rule.
+    //
+    // Topic completion: a Topic counts as completed only if it has at least
+    // one linked Task AND all of its linked Tasks have status 'done' (the
+    // only two real statuses in the app today are 'not_started' and 'done').
+    // A Topic with zero Tasks is never completed — creating a Topic is not
+    // progress, and neither is starting a timer or opening Focus Room.
+    function getJourneyProgress(pathId, topics, tasks) {
+      const orderedTopics = topics
+        .filter(t => t.pathId === pathId)
+        .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+
+      const isTopicCompleted = (topicId) => {
+        const topicTasks = tasks.filter(t => t.topicId === topicId);
+        if (topicTasks.length === 0) return false;
+        return topicTasks.every(t => t.status === 'done');
+      };
+
+      const completedTopicIds = orderedTopics.filter(t => isTopicCompleted(t.id)).map(t => t.id);
+      const totalTopics = orderedTopics.length;
+      const completedTopics = completedTopicIds.length;
+      const progressPercent = totalTopics === 0 ? 0 : Math.round((completedTopics / totalTopics) * 100);
+
+      // currentTopicIndex = index of the first not-yet-completed Topic.
+      // If every Topic is completed, it equals totalTopics — meaning the
+      // learner (and Milo) stands at the final Goal marker, past the last Topic.
+      let currentTopicIndex = orderedTopics.findIndex(t => !completedTopicIds.includes(t.id));
+      if (currentTopicIndex === -1) currentTopicIndex = totalTopics;
+
+      const currentTopicId = currentTopicIndex < totalTopics ? orderedTopics[currentTopicIndex].id : null;
+
+      return {
+        pathId,
+        totalTopics,
+        completedTopics,
+        currentTopicIndex,
+        progressPercent,
+        currentTopicId,
+        completedTopicIds,
+        orderedTopics
+      };
+    }
+
     const COMPANIONS = [
       { 
         id: 'milo', 
@@ -1041,6 +1092,7 @@
                   tasks={tasks}
                   topics={topics}
                   goals={goals}
+                  activeCompanion={activeCompanion}
                   availableTimeMinutes={availableTimeMinutes}
                   setAvailableTime={setAvailableTime}
                   onGoToFocus={() => setCurrentTab('focus')}
@@ -1308,7 +1360,111 @@
       );
     }
 
-    function DashboardView({ displayName, displayAvatar, quotes, paths, tasks, topics, goals, availableTimeMinutes, setAvailableTime, onGoToFocus, onStudyTask, triggerRefresh }) {
+    function LearningJourneySection({ paths, topics, tasks, activeCompanion }) {
+      const [selectedPathId, setSelectedPathId] = useState(paths[0]?.id || '');
+
+      useEffect(() => {
+        if (paths.length > 0 && !paths.some(p => p.id === selectedPathId)) {
+          setSelectedPathId(paths[0].id);
+        }
+      }, [paths, selectedPathId]);
+
+      if (paths.length === 0) {
+        return (
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm text-center">
+            <div className="text-2xl mb-2">🌱</div>
+            <p className="text-xs text-slate-400">برای دیدن مسیر یادگیری، ابتدا یک مسیر یادگیری بسازید.</p>
+          </div>
+        );
+      }
+
+      const selectedPath = paths.find(p => p.id === selectedPathId) || paths[0];
+      const journey = useMemo(
+        () => getJourneyProgress(selectedPath.id, topics, tasks),
+        [selectedPath.id, topics, tasks]
+      );
+      const companionEmoji = activeCompanion?.emoji || '🐱';
+
+      return (
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+              <span>🌱</span> مسیر یادگیری
+            </h3>
+            {paths.length > 1 && (
+              <select
+                value={selectedPath.id}
+                onChange={e => setSelectedPathId(e.target.value)}
+                className="text-[11px] bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 max-w-[45%]"
+              >
+                {paths.map(p => (
+                  <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {journey.totalTopics === 0 ? (
+            <div className="text-xs text-slate-400 text-center py-4">
+              برای شروع، مبحث‌های این مسیر را اضافه کنید.
+            </div>
+          ) : (
+            <React.Fragment>
+              <div className="overflow-x-auto pb-3 -mx-1 px-1">
+                <div className="flex items-center min-w-max">
+                  {journey.orderedTopics.map((topic, idx) => {
+                    const isDone = journey.completedTopicIds.includes(topic.id);
+                    const isMiloHere = idx === journey.currentTopicIndex;
+                    const prevDone = idx > 0 && journey.completedTopicIds.includes(journey.orderedTopics[idx - 1].id);
+                    return (
+                      <React.Fragment key={topic.id}>
+                        {idx > 0 && (
+                          <div className={`h-1 w-8 sm:w-12 ${prevDone ? 'bg-indigo-500' : 'bg-slate-200'}`}></div>
+                        )}
+                        <div className="flex flex-col items-center gap-1 relative" style={{ minWidth: '56px' }}>
+                          {isMiloHere && (
+                            <div className="absolute -top-6 text-lg">{companionEmoji}</div>
+                          )}
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 shrink-0 ${
+                            isDone ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-white border-slate-300 text-slate-400'
+                          }`}>
+                            {isDone ? '✓' : idx + 1}
+                          </div>
+                          <span className="text-[10px] text-slate-500 text-center max-w-[70px] truncate">{topic.title}</span>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
+
+                  <div className={`h-1 w-8 sm:w-12 ${journey.completedTopics === journey.totalTopics ? 'bg-indigo-500' : 'bg-slate-200'}`}></div>
+                  <div className="flex flex-col items-center gap-1 relative" style={{ minWidth: '56px' }}>
+                    {journey.currentTopicIndex === journey.totalTopics && (
+                      <div className="absolute -top-6 text-lg">{companionEmoji}</div>
+                    )}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm border-2 shrink-0 ${
+                      journey.completedTopics === journey.totalTopics ? 'bg-amber-400 border-amber-400 text-white' : 'bg-white border-slate-300 text-slate-300'
+                    }`}>
+                      🏆
+                    </div>
+                    <span className="text-[10px] text-slate-500">هدف</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-bold">{journey.completedTopics} از {journey.totalTopics} مبحث تکمیل شده</span>
+                <span className="text-indigo-600 font-bold">پیشرفت: {journey.progressPercent}%</span>
+              </div>
+              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-indigo-600 h-full rounded-full transition-all" style={{ width: `${journey.progressPercent}%` }}></div>
+              </div>
+            </React.Fragment>
+          )}
+        </div>
+      );
+    }
+
+    function DashboardView({ displayName, displayAvatar, quotes, paths, tasks, topics, goals, activeCompanion, availableTimeMinutes, setAvailableTime, onGoToFocus, onStudyTask, triggerRefresh }) {
       const todayDate = useMemo(() => getJalaliDate(), []);
       const quote = useMemo(() => quotes[new Date().getDate() % quotes.length], [quotes]);
       const [completionToast, setCompletionToast] = useState(null);
@@ -1366,6 +1522,8 @@
             </div>
             <img src={displayAvatar} alt={displayName} className="w-16 h-16 md:w-20 md:h-20 rounded-3xl object-cover border-2 border-white shadow-md hidden sm:block" />
           </div>
+
+          <LearningJourneySection paths={paths} topics={topics} tasks={tasks} activeCompanion={activeCompanion} />
 
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 rounded-3xl shadow-lg shadow-indigo-100 flex items-center justify-between">
             <div className="space-y-1">
