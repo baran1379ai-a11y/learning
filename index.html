@@ -71,6 +71,89 @@
       sessions: 'id, pathId, taskId, topicId, durationMinutes, timestamp'
     });
 
+    // ==================================================================
+    // ARCHITECTURE NOTES — foundation for future phases.
+    // Nothing below changes the schema or creates new tables. It only
+    // records, next to the real tables, what future phases will need so
+    // we don't have to rediscover or redesign this later.
+    //
+    // Phase A (Learning Journey + Milo):
+    //   No new "journey" table/field on Path is needed. A Path's journey
+    //   is DERIVED at render time from its existing Topics (ordered) plus
+    //   the task_completed events those Topics' Tasks produce — not stored
+    //   as a separate entity. Milo's position must come from this real
+    //   derived progress, never a hard-coded or random position.
+    //
+    // Phase B (Smart Review):
+    //   `topics` will eventually need: lastReviewedAt, nextReviewAt,
+    //   reviewCount, correctCount, incorrectCount, reviewStreak,
+    //   difficulty, retention. `mastery` (already in schema) can seed
+    //   retention. Not added now — no UI/engine consumes them yet, and
+    //   Dexie's schema string is only indexes, so adding these later as
+    //   plain object fields (or as new indexes if we need to query by
+    //   them) won't require touching this comment's plan.
+    //   `flashcards` already carries a simple spaced-repetition shape
+    //   (`step`, `nextReviewDate`) — the future Review Engine should
+    //   reuse/extend that shape for Topics rather than invent a second one.
+    //
+    // Phase C (Mistake Center):
+    //   Reads from Phase D's Attempt records (isCorrect === false) —
+    //   it is a VIEW over Assessment data, not its own stored entity.
+    //
+    // Phase D (Assessment Engine):
+    //   `quizzes` (id, topicId, score, timestamp) is too thin for real
+    //   Question/Attempt tracking. Future Question/Attempt records will
+    //   need: questionId, userAnswer, correctAnswer, isCorrect, topicId,
+    //   pathId, resourceId (optional), taskId (optional), timestamp — so
+    //   they can connect to Path/Topic/Resource/Task like everything else
+    //   already does. Left untouched for now since nothing uses it yet.
+    //
+    // Phase E (AI Tutor):
+    //   Will need read access to a single Question/Attempt's full context
+    //   (question, options, correctAnswer, userAnswer, topic, resource) —
+    //   satisfied automatically once Phase D's records carry those
+    //   foreign keys above. No separate context store needed.
+    //
+    // Phase F (Adaptive Learning) & Phase G (Coach Dashboard):
+    //   Coach/Learner ownership already has a natural anchor: Supabase
+    //   auth user id (the same id used as the sync key in `user_data`).
+    //   A future coach↔learner relationship belongs in Supabase (a
+    //   relational join a Coach's account can query across learners),
+    //   not in each learner's local Dexie — so no local schema change is
+    //   needed here either.
+    // ==================================================================
+
+    // Minimal in-process event bus — plain JS, no external library.
+    // Lets a single real event (like task_completed) be consumed by
+    // several independent future systems (Journey, Achievement,
+    // Analytics, Companion) without the place that emits the event
+    // needing to know who's listening. Only a debug listener is
+    // registered below — no fake consumers are wired in yet.
+    const AppEvents = (() => {
+      const listeners = {};
+      return {
+        on(eventType, handler) {
+          if (!listeners[eventType]) listeners[eventType] = [];
+          listeners[eventType].push(handler);
+          return () => {
+            listeners[eventType] = listeners[eventType].filter(h => h !== handler);
+          };
+        },
+        emit(eventType, payload) {
+          (listeners[eventType] || []).forEach(handler => {
+            try { handler(payload); } catch (err) { console.error('AppEvents handler error:', err); }
+          });
+        }
+      };
+    })();
+
+    // Placeholder subscriber — this is where a future Journey Engine,
+    // Achievement Engine, or Companion State Engine would register
+    // itself. For now it only logs, so behavior is unchanged.
+    AppEvents.on('task_completed', (event) => {
+      console.log('Completion Event:', event);
+    });
+
     const SUPABASE_URL = 'https://lwsndcosdmjxkhnhjhwx.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_6cS5z3_zbFNr0HN0u3ZD9A_c5uVewyV';
     const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
@@ -81,6 +164,20 @@
       } catch (e) {
         return "امروز، روز یادگیری و پیشرفت";
       }
+    }
+
+    // Helper: builds a Completion Event object when a Task transitions to done.
+    // This does not persist anywhere yet — it exists so a future Companion State
+    // Engine (Milo) can consume real Task/Topic/Path identifiers without us
+    // inventing a parallel data structure later.
+    function createTaskCompletionEvent(task) {
+      return {
+        type: 'task_completed',
+        taskId: task.id,
+        pathId: task.pathId || null,
+        topicId: task.topicId || null,
+        timestamp: new Date().toISOString()
+      };
     }
 
     const COMPANIONS = [
@@ -227,7 +324,7 @@
       );
     }
 
-    function FocusRoomView({ activeCompanion, setActiveCompanion, onSessionSaved }) {
+    function FocusRoomView({ activeCompanion, setActiveCompanion, activeStudyTask, onClearActiveTask, onSessionSaved }) {
       const [isSelecting, setIsSelecting] = useState(false);
       const [timeLeft, setTimeLeft] = useState(25 * 60);
       const [selectedMinutes, setSelectedMinutes] = useState(25);
@@ -292,7 +389,10 @@
         await db.sessions.add({
           id: 'sess-' + Date.now(),
           durationMinutes: mins,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          pathId: activeStudyTask ? activeStudyTask.pathId : null,
+          taskId: activeStudyTask ? activeStudyTask.id : null,
+          topicId: activeStudyTask ? (activeStudyTask.topicId || null) : null
         });
 
         alert(`آفرین! ${mins} دقیقه تمرکز عمیق همراه با ${activeCompanion.name} ثبت شد ✨`);
@@ -340,17 +440,43 @@
             <div className="cozy-night-room rounded-3xl h-[480px] sm:h-[540px] text-white shadow-2xl relative flex flex-col justify-between p-6 sm:p-8 border border-indigo-500/25">
               <IllustratedFrameCharacter companion={activeCompanion} />
 
-              <div className="flex items-center justify-between relative z-10">
-                <button
-                  onClick={() => setIsSelecting(true)}
-                  className="text-xs bg-black/50 backdrop-blur hover:bg-black/70 px-4 py-2 rounded-full border border-white/20 font-bold flex items-center gap-2 transition text-white shadow-lg"
-                >
-                  <span>{activeCompanion.emoji}</span>
-                  <span>تغییر همراه ({activeCompanion.name}) 🔄</span>
-                </button>
-                <span className="text-xs bg-black/50 backdrop-blur px-3 py-1 rounded-full border border-white/10 text-indigo-200">
-                  {activeCompanion.desc}
-                </span>
+              <div className="relative z-10 space-y-2">
+                {activeStudyTask && (
+                  <div className="bg-indigo-600/85 backdrop-blur-md rounded-2xl border border-indigo-300/40 shadow-lg px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold text-indigo-100">📚 در حال مطالعه</div>
+                      <div className="text-xs font-bold text-white truncate">{activeStudyTask.title}</div>
+                      {(activeStudyTask.pathTitle || activeStudyTask.topicTitle) && (
+                        <div className="text-[10px] text-indigo-100 mt-0.5 truncate">
+                          {activeStudyTask.pathTitle && <span>مسیر: {activeStudyTask.pathTitle}</span>}
+                          {activeStudyTask.pathTitle && activeStudyTask.topicTitle && <span> · </span>}
+                          {activeStudyTask.topicTitle && <span>مبحث: {activeStudyTask.topicTitle}</span>}
+                        </div>
+                      )}
+                    </div>
+                    {onClearActiveTask && (
+                      <button
+                        onClick={onClearActiveTask}
+                        className="text-[10px] text-indigo-100 bg-white/10 hover:bg-white/20 px-2.5 py-1.5 rounded-xl border border-white/20 shrink-0"
+                      >
+                        🔄 مطالعه آزاد
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => setIsSelecting(true)}
+                    className="text-xs bg-black/50 backdrop-blur hover:bg-black/70 px-4 py-2 rounded-full border border-white/20 font-bold flex items-center gap-2 transition text-white shadow-lg"
+                  >
+                    <span>{activeCompanion.emoji}</span>
+                    <span>تغییر همراه ({activeCompanion.name}) 🔄</span>
+                  </button>
+                  <span className="text-xs bg-black/50 backdrop-blur px-3 py-1 rounded-full border border-white/10 text-indigo-200">
+                    {activeCompanion.desc}
+                  </span>
+                </div>
               </div>
 
               <div className="relative z-10 space-y-4 text-center bg-black/40 backdrop-blur-md p-5 rounded-3xl border border-white/15 shadow-2xl">
@@ -476,6 +602,21 @@
       const [refreshKey, setRefreshKey] = useState(0);
 
       const [activeCompanion, setActiveCompanion] = useState(COMPANIONS[0]);
+      const [activeStudyTask, setActiveStudyTask] = useState(null);
+
+      const handleStudyTask = (task) => {
+        const relatedPath = paths.find(p => p.id === task.pathId);
+        const relatedTopic = task.topicId ? topics.find(t => t.id === task.topicId) : null;
+        setActiveStudyTask({
+          id: task.id,
+          title: task.title,
+          pathId: task.pathId || null,
+          topicId: task.topicId || null,
+          pathTitle: relatedPath ? relatedPath.title : null,
+          topicTitle: relatedTopic ? relatedTopic.title : null
+        });
+        setCurrentTab('focus');
+      };
 
       useEffect(() => {
         const savedId = localStorage.getItem('study_companion_id');
@@ -903,6 +1044,7 @@
                   availableTimeMinutes={availableTimeMinutes}
                   setAvailableTime={setAvailableTime}
                   onGoToFocus={() => setCurrentTab('focus')}
+                  onStudyTask={handleStudyTask}
                   triggerRefresh={() => { triggerRefresh(); syncPush(); }}
                 />
               )}
@@ -911,6 +1053,8 @@
                 <FocusRoomView
                   activeCompanion={activeCompanion}
                   setActiveCompanion={setActiveCompanion}
+                  activeStudyTask={activeStudyTask}
+                  onClearActiveTask={() => setActiveStudyTask(null)}
                   onSessionSaved={() => { triggerRefresh(); syncPush(); }}
                 />
               )}
@@ -924,7 +1068,7 @@
               )}
 
               {currentTab === 'tasks' && (
-                <TasksView paths={paths} tasks={tasks} triggerRefresh={() => { triggerRefresh(); syncPush(); }} />
+                <TasksView paths={paths} tasks={tasks} topics={topics} onStudyTask={handleStudyTask} triggerRefresh={() => { triggerRefresh(); syncPush(); }} />
               )}
 
               {currentTab === 'leitner' && (
@@ -1164,9 +1308,10 @@
       );
     }
 
-    function DashboardView({ displayName, displayAvatar, quotes, paths, tasks, topics, goals, availableTimeMinutes, setAvailableTime, onGoToFocus, triggerRefresh }) {
+    function DashboardView({ displayName, displayAvatar, quotes, paths, tasks, topics, goals, availableTimeMinutes, setAvailableTime, onGoToFocus, onStudyTask, triggerRefresh }) {
       const todayDate = useMemo(() => getJalaliDate(), []);
       const quote = useMemo(() => quotes[new Date().getDate() % quotes.length], [quotes]);
+      const [completionToast, setCompletionToast] = useState(null);
 
       const topTask = useMemo(() => {
         const pending = tasks.filter(t => t.status !== 'done');
@@ -1174,8 +1319,23 @@
       }, [tasks]);
 
       const toggleTask = async (task) => {
-        const next = task.status === 'done' ? 'not_started' : 'done';
+        const wasDone = task.status === 'done';
+        const next = wasDone ? 'not_started' : 'done';
         await db.tasks.update(task.id, { status: next });
+
+        // Completion Event fires ONLY on a real not-done -> done transition,
+        // triggered here (inside the click handler), never on a plain
+        // refresh/re-render — so it can never re-fire for an already-done task.
+        if (!wasDone && next === 'done') {
+          const completionEvent = createTaskCompletionEvent(task);
+          // Emitted via AppEvents so future engines (Journey, Achievement,
+          // Analytics, Companion State Engine) can subscribe independently
+          // without this handler needing to know about them.
+          AppEvents.emit('task_completed', completionEvent);
+          setCompletionToast('🎉 عالی! یک قدم دیگه جلو رفتی!');
+          setTimeout(() => setCompletionToast(null), 2500);
+        }
+
         triggerRefresh();
       };
 
@@ -1222,6 +1382,12 @@
             </button>
           </div>
 
+          {completionToast && (
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl px-4 py-3 text-center shadow-sm">
+              {completionToast}
+            </div>
+          )}
+
           {topTask && (
             <div className="bg-white border-2 border-indigo-100 rounded-3xl p-5 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 right-0 w-2 h-full bg-indigo-600"></div>
@@ -1233,12 +1399,22 @@
                   <h3 className="font-bold text-slate-800 text-sm mt-2">{topTask.title}</h3>
                   <span className="text-xs text-slate-400 mt-0.5 block">⏱ تخمین: {topTask.estimatedMinutes || 30} دقیقه</span>
                 </div>
-                <button
-                  onClick={() => toggleTask(topTask)}
-                  className="bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition"
-                >
-                  انجام شد ✓
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {onStudyTask && (
+                    <button
+                      onClick={() => onStudyTask(topTask)}
+                      className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold px-3 py-2.5 rounded-xl hover:bg-indigo-100 transition"
+                    >
+                      ▶️ مطالعه
+                    </button>
+                  )}
+                  <button
+                    onClick={() => toggleTask(topTask)}
+                    className="bg-indigo-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-indigo-700 transition"
+                  >
+                    انجام شد ✓
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1684,16 +1860,33 @@
       );
     }
 
-    function TasksView({ paths, tasks, triggerRefresh }) {
+    function TasksView({ paths, tasks, topics, triggerRefresh, onStudyTask }) {
       const [title, setTitle] = useState('');
       const [pathId, setPathId] = useState(paths[0]?.id || '');
+      const [topicId, setTopicId] = useState('');
       const [estimatedMinutes, setEstimatedMinutes] = useState('30');
+
+      const topicsForSelectedPath = topics.filter(t => t.pathId === pathId);
+
+      const handlePathChange = (newPathId) => {
+        setPathId(newPathId);
+        // Selected topic almost certainly doesn't belong to the new Path — clear it.
+        setTopicId('');
+      };
 
       const handleAdd = async (e) => {
         e.preventDefault();
         if (!title || !pathId) return;
-        await db.tasks.add({ id: 'task-' + Date.now(), title, pathId, estimatedMinutes: parseInt(estimatedMinutes, 10) || 30, status: 'not_started' });
+        await db.tasks.add({
+          id: 'task-' + Date.now(),
+          title,
+          pathId,
+          topicId: topicId || null,
+          estimatedMinutes: parseInt(estimatedMinutes, 10) || 30,
+          status: 'not_started'
+        });
         setTitle('');
+        setTopicId('');
         triggerRefresh();
       };
 
@@ -1703,9 +1896,18 @@
             <h3 className="font-bold text-slate-800 text-sm">افزودن تسک روزانه</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <input type="text" placeholder="عنوان کار..." value={title} onChange={e => setTitle(e.target.value)} className="bg-slate-50 border p-2.5 rounded-xl" required />
-              <select value={pathId} onChange={e => setPathId(e.target.value)} className="bg-slate-50 border p-2.5 rounded-xl">
+              <select value={pathId} onChange={e => handlePathChange(e.target.value)} className="bg-slate-50 border p-2.5 rounded-xl">
                 {paths.map(p => (
                   <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-slate-500 font-bold mb-1">مبحث مرتبط</label>
+              <select value={topicId} onChange={e => setTopicId(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl">
+                <option value="">بدون مبحث</option>
+                {topicsForSelectedPath.map(t => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
                 ))}
               </select>
             </div>
@@ -1715,12 +1917,30 @@
             </div>
           </form>
           <div className="space-y-2">
-            {tasks.map(t => (
-              <div key={t.id} className="flex items-center justify-between p-3.5 bg-white rounded-2xl border text-xs">
-                <span className="font-bold text-slate-700">{t.title}</span>
-                <button onClick={async () => { await db.tasks.delete(t.id); triggerRefresh(); }} className="text-rose-500 font-bold">حذف</button>
-              </div>
-            ))}
+            {tasks.map(t => {
+              const relatedTopic = t.topicId ? topics.find(tp => tp.id === t.topicId) : null;
+              return (
+                <div key={t.id} className="flex items-center justify-between p-3.5 bg-white rounded-2xl border text-xs gap-2">
+                  <div className="min-w-0">
+                    <span className="font-bold text-slate-700 block truncate">{t.title}</span>
+                    {relatedTopic && (
+                      <span className="text-[10px] text-indigo-500 mt-0.5 block">🧠 {relatedTopic.title}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {onStudyTask && (
+                      <button
+                        onClick={() => onStudyTask(t)}
+                        className="text-indigo-600 font-bold hover:underline"
+                      >
+                        ▶️ مطالعه این تسک
+                      </button>
+                    )}
+                    <button onClick={async () => { await db.tasks.delete(t.id); triggerRefresh(); }} className="text-rose-500 font-bold">حذف</button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       );
