@@ -231,151 +231,289 @@
       };
     }
 
+    // ==================================================================
+    // GOAL TYPE CLASSIFICATION — RuleBasedGoalClassifier (NOT AI).
+    //
+    // Canonical Goal Type values used everywhere in the app from now on:
+    // 'knowledge' | 'skill' | 'project' | 'hybrid'.
+    // Legacy Goals saved earlier with type === 'general' are NOT touched —
+    // they are treated as "needs classification" wherever displayed.
+    //
+    // classifyGoalType(title) is a small, pure, deterministic, explainable
+    // keyword-based function. It is intentionally isolated behind this one
+    // entry point so a future AI classifier can replace it later without
+    // any other part of the Goal system changing — no AI call, no API key,
+    // and no fake AI response exists here today.
+    // ==================================================================
+    const GOAL_TYPE_LABELS = {
+      knowledge: 'یادگیری و تسلط',
+      skill: 'یادگیری یک مهارت',
+      project: 'ساختن یک نتیجه واقعی',
+      hybrid: 'یادگیری + ساختن'
+    };
+
+    function classifyGoalType(title) {
+      const text = (title || '').toLowerCase();
+      const matched = [];
+
+      const has = (list, label) => {
+        const found = list.some(word => text.includes(word));
+        if (found) matched.push(label);
+        return found;
+      };
+
+      // Academic/exam-style context -> strong knowledge signal.
+      const hasAcademic = has(
+        ['کنکور', 'ارشد', 'دکترا', 'امتحان', 'آزمون', 'دانشگاه', 'مقاله'],
+        'واژه‌ی آموزشی/آزمونی در عنوان دیده شد'
+      );
+      // Hands-on craft/practice domain -> strong skill signal.
+      const hasCraftSkill = has(
+        ['خیاطی', 'آشپزی', 'نقاشی', 'عکاسی', 'رانندگی', 'نواختن', 'گیتار', 'ورزش'],
+        'یک مهارت عملی/دستی در عنوان دیده شد'
+      );
+      // Generic "I want to learn/understand/master" verbs -> weak/neutral
+      // learning intent; resolved into knowledge vs skill by the two flags above.
+      const hasLearningVerb = has(
+        ['یاد بگیرم', 'آماده بشم', 'آماده شدن', 'بفهمم', 'مسلط بشم', 'بخونم', 'مطالعه کنم', 'یاد بگیرن'],
+        'فعل «یادگیری» در عنوان دیده شد'
+      );
+      // "Build/design/launch/develop" verbs or product-ish nouns -> project signal.
+      const hasBuildVerb = has(
+        ['بسازم', 'بساز', 'طراحی', 'راه‌اندازی', 'توسعه بدم', 'پیاده‌سازی', 'سایت', 'اپلیکیشن', 'پروژه'],
+        'فعل/اسم «ساختن یک نتیجه» در عنوان دیده شد'
+      );
+
+      const scores = {
+        knowledge: (hasAcademic ? 2 : 0) + (hasLearningVerb && !hasCraftSkill ? 1 : 0),
+        skill: (hasCraftSkill ? 2 : 0) + (hasLearningVerb && hasCraftSkill ? 1 : 0),
+        project: hasBuildVerb ? 2 : 0
+      };
+
+      const hasLearningSignal = scores.knowledge > 0 || scores.skill > 0;
+      const hasProjectSignal = scores.project > 0;
+
+      let type;
+      let confidence;
+
+      if (hasLearningSignal && hasProjectSignal) {
+        type = 'hybrid';
+        confidence = 0.7;
+      } else if (!hasLearningSignal && !hasProjectSignal) {
+        // Nothing recognizable matched — do not force a guess.
+        type = null;
+        confidence = 0;
+        matched.push('هیچ سرنخ کلیدواژه‌ای در عنوان پیدا نشد');
+      } else {
+        const winner = Object.keys(scores).reduce((a, b) => (scores[b] > scores[a] ? b : a));
+        type = winner;
+        confidence = scores[winner] >= 2 ? 0.8 : 0.5;
+      }
+
+      return { type, confidence, reasons: matched };
+    }
+
+    // Dynamic setup questions per Goal Type — ONLY the essentials, per the
+    // approved lean-v1 scope. Every field is optional to answer; setupData
+    // stores only what the user actually provides (see PathGoalsSection).
+    // Never includes derived/real-performance fields (progress, sessions,
+    // mastery, etc.) — those come only from real Task/Session data.
+    const GOAL_SETUP_QUESTIONS = {
+      knowledge: [
+        { key: 'deadline', label: 'مهلت (اختیاری)', placeholder: 'مثلاً: بهمن ۱۴۰۴' },
+        { key: 'currentLevel', label: 'سطح فعلی شما در این موضوع', placeholder: 'مثلاً: مبتدی، آشنا، پیشرفته...' }
+      ],
+      skill: [
+        { key: 'currentLevel', label: 'سطح فعلی شما در این مهارت', placeholder: 'مثلاً: کاملاً مبتدی...' },
+        { key: 'expectedPerformance', label: 'در پایان باید چه کاری بتونید انجام بدید؟', placeholder: 'مثلاً: دوختن یک لباس ساده' }
+      ],
+      project: [
+        { key: 'finalDeliverable', label: 'نتیجه‌ی نهایی دقیقاً چیه؟', placeholder: 'مثلاً: یک اپلیکیشن قابل نصب' },
+        { key: 'deadline', label: 'مهلت (اختیاری)', placeholder: 'مثلاً: خرداد ۱۴۰۵' }
+      ],
+      hybrid: [
+        { key: 'currentLevel', label: 'سطح فعلی شما', placeholder: 'مثلاً: کمی آشنا' },
+        { key: 'finalDeliverable', label: 'نتیجه‌ی نهایی که می‌خواید بسازید', placeholder: 'مثلاً: یک وب‌سایت شخصی' },
+        { key: 'deadline', label: 'مهلت (اختیاری)', placeholder: 'مثلاً: تابستان ۱۴۰۵' }
+      ]
+    };
+
+    // ==================================================================
+    // COMPANION SYSTEM — CompanionSelector data + CompanionAnimation config.
+    //
+    // Only two companions remain selectable: Milo (primary) and Hooty
+    // (second companion, kept functional but not redesigned). The other
+    // legacy characters (Mocha, Sprout, Luna, Botty) are removed entirely
+    // per this step's cleanup requirement — not left as dead code.
+    //
+    // Each companion has an `animations` map: state -> animation definition.
+    // An animation definition can carry: type, source, loop, transitionTo
+    // (which state to move to when a non-looping animation ends). Only
+    // `type: 'video'` is implemented today; the shape already allows future
+    // types (webm/lottie/css/svg/sprite/static-image) without a rewrite —
+    // see getCompanionAnimation()/CompanionAnimationRenderer below.
+    //
+    // A state with no dedicated entry safely falls back to that companion's
+    // `idle` animation (never to an incorrect asset, e.g. never looping the
+    // reading video as idle).
+    // ==================================================================
+    const MILO_VIDEO_BASE = 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/';
+
     const COMPANIONS = [
-      { 
-        id: 'milo', 
-        name: 'میلو', 
-        title: 'گربه آرام و کامواباف', 
-        emoji: '🐱', 
-        desc: 'بافتن شال‌گردن حین مطالعه شما',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/milo.mp4.mp4',
-        messages: ['میو! کنارتم تا شال‌گردنت رو ببافم 🧶', 'عالی پیش میری، خسته نباشی مربی! 🐾']
+      {
+        id: 'milo',
+        name: 'میلو',
+        title: 'گربه آرام و کامواباف',
+        emoji: '🐱',
+        desc: 'همراه اصلی مطالعه‌ی شما',
+        messages: ['میو! کنارتم تا شال‌گردنت رو ببافم 🧶', 'عالی پیش میری، خسته نباشی مربی! 🐾'],
+        animations: {
+          // Real, already-hosted asset: Milo knitting on the green sofa —
+          // used as the default/idle/break visual (not the reading video).
+          idle: { type: 'video', source: MILO_VIDEO_BASE + 'milo.mp4.mp4', loop: true },
+          // One-time transition when a study session actually starts.
+          // Plays once; onEnded hands off to 'reading' (see CompanionStage).
+          study_start: { type: 'video', source: MILO_VIDEO_BASE + 'milo/milo_start_reading.mp4', loop: false, transitionTo: 'reading' },
+          reading: { type: 'video', source: MILO_VIDEO_BASE + 'milo/milo_reading.mp4', loop: true }
+          // writing / thinking / sleepy / excited / distracted / session_complete /
+          // comeback / walking: no dedicated asset yet — resolver falls back to idle.
+        }
       },
-      { 
-        id: 'hooty', 
-        name: 'هدهد دانا', 
-        title: 'جغد کتابخوان در کلبه', 
-        emoji: '🦉', 
+      {
+        id: 'hooty',
+        name: 'هدهد دانا',
+        title: 'جغد کتابخوان در کلبه',
+        emoji: '🦉',
         desc: 'ورق زدن کتاب با عینک مطالعه',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Hodhod.mp4',
-        messages: ['دانش با هر ورق کتاب عمیق‌تر میشه 📖', 'تمرکزت ستودنیه، هوهود! ✨']
-      },
-      { 
-        id: 'mocha', 
-        name: 'موکا', 
-        title: 'روباه دنج در حال مطالعه', 
-        emoji: '🦊', 
-        desc: 'یادداشت‌برداری زیر درخت بید مجنون',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Moca.mp4',
-        messages: ['یه تیکه نون تست با مربای توت‌فرنگی مهمون من 🍓', 'بوی چای و کتاب توی جنگل پیچیده ☕']
-      },
-      { 
-        id: 'sprout', 
-        name: 'جوانه', 
-        title: 'گیاه زنده در حال رشد', 
-        emoji: '🌱', 
-        desc: 'رشد ساقه و باز شدن شکوفه‌ها',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Javane.mp4',
-        messages: ['با هر دقیقه تمرکزت یک برگ تازه باز میشه 🌱', 'نور خورشید و ریتم تو باعث رشد منه ☀️']
-      },
-      { 
-        id: 'luna', 
-        name: 'لونا', 
-        title: 'ابر مهربان بارانی', 
-        emoji: '☁️', 
-        desc: 'بارش قطرات کریستالی آرامش',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Luna.mp4',
-        messages: ['قطرات آرامش دارن هوای اتاق رو خنک میکنن 🌧️', 'عمیق نفس بکش، لونا اینجاست ☁️']
-      },
-      { 
-        id: 'botty', 
-        name: 'کوچولو', 
-        title: 'دستیار رباتیک متمرکز', 
-        emoji: '🤖', 
-        desc: 'اسکن زمان و نمایش قلب دیجیتال',
-        videoUrl: 'https://cdn.jsdelivr.net/gh/baran1379ai-a11y/my-study-videos@main/Robot.mp4',
-        messages: ['بازدهی سیستم روی حالت ایده‌آل قرار داره بیبی 🤖', 'قلب دیجیتالم برای پیشرفتت می‌تپه ♥']
+        messages: ['دانش با هر ورق کتاب عمیق‌تر میشه 📖', 'تمرکزت ستودنیه، هوهود! ✨'],
+        animations: {
+          // Legacy single-asset companion — intentionally not redesigned or
+          // migrated to per-state animations in this step. Every state
+          // safely falls back to this one existing video.
+          idle: { type: 'video', source: MILO_VIDEO_BASE + 'Hodhod.mp4', loop: true }
+        }
       }
     ];
 
-    function FloatingLivingPetsWidget({ activeCompanion, setActiveCompanion }) {
-      const [currentMsg, setCurrentMsg] = useState(null);
-      const [activeId, setActiveId] = useState(null);
+    // Resolves the animation definition to play for a given companion/state,
+    // falling back to that companion's idle animation (and finally to a
+    // plain emoji) rather than ever showing a broken or wrong asset.
+    function getCompanionAnimation(companion, state) {
+      if (!companion || !companion.animations) {
+        return { type: 'emoji', source: companion?.emoji || '🐾', loop: true };
+      }
+      return companion.animations[state] || companion.animations.idle || { type: 'emoji', source: companion.emoji, loop: true };
+    }
 
-      const handleInteract = (comp) => {
-        setActiveCompanion(comp);
-        localStorage.setItem('study_companion_id', comp.id);
-        setActiveId(comp.id);
-        const msgs = comp.messages || ['سلام مربی! 🌸', 'کنارتم تا موفق بشی! ✨'];
-        const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
-        setCurrentMsg(randomMsg);
-        setTimeout(() => {
-          setCurrentMsg(null);
-          setActiveId(null);
-        }, 4000);
-      };
+    // CompanionMessages — kept separate from animation logic on purpose.
+    // Only a handful of meaningful, non-spammy states get a forced message;
+    // 'idle'/'reading'/'study_start' intentionally have none so the
+    // click-to-interact message (CompanionStage) can show instead.
+    const COMPANION_STATE_MESSAGES = {
+      break: 'کمی استراحت کن، الان برمی‌گردیم 🌿',
+      session_complete: '🎉 آفرین! یک قدم دیگه جلو رفتی!',
+      comeback: 'خوش برگشتی! دوباره شروع کنیم؟ 🌸'
+    };
 
+    // CompanionAnimation — renders the resolved animation definition. Only
+    // `type: 'video'` exists today; any other/future type (or a missing
+    // source) gracefully falls back to a static emoji so the Stage never
+    // shows nothing or throws.
+    function CompanionAnimationRenderer({ animation, companionEmoji, onEnded }) {
+      if (animation.type === 'video' && animation.source) {
+        return (
+          <video
+            key={animation.source}
+            src={animation.source}
+            autoPlay
+            loop={!!animation.loop}
+            muted
+            playsInline
+            crossOrigin="anonymous"
+            onEnded={animation.loop ? undefined : onEnded}
+            className="w-full h-full object-cover opacity-90"
+          />
+        );
+      }
       return (
-        <div className="fixed bottom-20 left-4 z-40 hidden lg:flex flex-col gap-2 items-center bg-white/80 backdrop-blur-md p-2.5 rounded-3xl border border-indigo-100 shadow-2xl">
-          <div className="text-[10px] font-bold text-indigo-700 mb-1">همراهان زنده 🐾</div>
-          {COMPANIONS.map(comp => {
-            const isActive = activeCompanion.id === comp.id;
-            const isSelected = activeId === comp.id;
-            return (
-              <div key={comp.id} className="relative group">
-                {isSelected && currentMsg && (
-                  <div className="absolute left-14 bottom-0 bg-white text-indigo-900 font-bold text-xs px-4 py-2 rounded-2xl shadow-xl border border-indigo-200 whitespace-nowrap animate-bounce z-50">
-                    {currentMsg}
-                  </div>
-                )}
-                <button
-                  onClick={() => handleInteract(comp)}
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center text-xl transition-all duration-300 ${
-                    isActive ? 'bg-indigo-600 text-white shadow-lg scale-110 ring-4 ring-indigo-200' : 'bg-slate-100 hover:bg-indigo-50 text-slate-700'
-                  }`}
-                  title={`${comp.name}: ${comp.title}`}
-                >
-                  {comp.emoji}
-                </button>
-              </div>
-            );
-          })}
+        <div className="w-full h-full flex items-center justify-center text-7xl">
+          {companionEmoji}
         </div>
       );
     }
 
-    function IllustratedFrameCharacter({ companion }) {
-      const [petMessage, setPetMessage] = useState(null);
+    // CompanionStage — the single persistent container for the active
+    // companion (video/image/animation + state message + click interaction).
+    // Replaces the old IllustratedFrameCharacter. Lives only inside Focus
+    // Room; no floating duplicate is rendered anywhere else.
+    function CompanionStage({ companion, state, onStateEnded }) {
+      const [interactionMessage, setInteractionMessage] = useState(null);
 
-      const handlePetClick = () => {
-        const msgs = companion.messages || ['سلام مربی! کنارتم 🌸', 'خسته نباشي، عالی پیش میری! ✨'];
+      const animation = getCompanionAnimation(companion, state);
+      const stateMessage = COMPANION_STATE_MESSAGES[state];
+
+      // CompanionInteraction — a user-initiated click, not an automatic/
+      // random-interval popup, so it never violates the "don't interrupt
+      // the learner" rule.
+      const handleClick = () => {
+        const msgs = companion.messages || ['سلام مربی! کنارتم 🌸'];
         const randomMsg = msgs[Math.floor(Math.random() * msgs.length)];
-        setPetMessage(randomMsg);
-        setTimeout(() => setPetMessage(null), 3500);
+        setInteractionMessage(randomMsg);
+        setTimeout(() => setInteractionMessage(null), 3500);
+      };
+
+      const handleAnimationEnded = () => {
+        if (animation.transitionTo && onStateEnded) {
+          onStateEnded(animation.transitionTo);
+        }
       };
 
       return (
         <div className="absolute inset-0 w-full h-full overflow-hidden z-0 select-none bg-slate-950 flex items-center justify-center">
-          {companion.videoUrl ? (
-            <div className="w-full h-full relative cursor-pointer flex items-center justify-center" onClick={handlePetClick}>
-              <video 
-                key={companion.videoUrl}
-                src={companion.videoUrl} 
-                autoPlay 
-                loop 
-                muted 
-                playsInline 
-                crossOrigin="anonymous"
-                className="w-full h-full object-cover opacity-90"
-              />
-              <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
-            </div>
-          ) : (
-            <div className="w-full h-full bg-slate-900 flex items-center justify-center text-7xl">
-              {companion.emoji}
-            </div>
-          )}
+          <div className="w-full h-full relative cursor-pointer flex items-center justify-center" onClick={handleClick}>
+            <CompanionAnimationRenderer animation={animation} companionEmoji={companion.emoji} onEnded={handleAnimationEnded} />
+            <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
+          </div>
 
-          {petMessage && (
+          {stateMessage ? (
             <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur text-indigo-900 font-bold text-xs px-5 py-2.5 rounded-2xl shadow-2xl border border-indigo-200 animate-bounce z-40">
-              {petMessage}
+              {stateMessage}
             </div>
-          )}
+          ) : interactionMessage ? (
+            <div className="absolute top-16 left-1/2 -translate-x-1/2 bg-white/95 backdrop-blur text-indigo-900 font-bold text-xs px-5 py-2.5 rounded-2xl shadow-2xl border border-indigo-200 animate-bounce z-40">
+              {interactionMessage}
+            </div>
+          ) : null}
         </div>
       );
     }
 
-    function FocusRoomView({ activeCompanion, setActiveCompanion, activeStudyTask, onClearActiveTask, onSessionSaved }) {
+    // CompanionSelector — the picker UI, now limited to the two active
+    // companions (COMPANIONS is already trimmed, so this needs no filtering).
+    // CompanionPersistence: reuses the existing localStorage key unchanged.
+    function CompanionSelector({ activeCompanion, onSelect }) {
+      return (
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {COMPANIONS.map(b => (
+            <div
+              key={b.id}
+              onClick={() => onSelect(b)}
+              className={`cursor-pointer p-3.5 rounded-2xl border text-center transition-all ${
+                activeCompanion.id === b.id
+                  ? 'border-indigo-600 bg-indigo-50/80 shadow-md scale-105'
+                  : 'border-slate-100 bg-white hover:border-indigo-200'
+              }`}
+            >
+              <div className="text-3xl mb-1.5">{b.emoji}</div>
+              <div className="font-bold text-xs text-slate-800">{b.name}</div>
+              <div className="text-[10px] text-slate-400 mt-1">{b.title}</div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function FocusRoomView({ activeCompanion, setActiveCompanion, companionState, setCompanionState, activeStudyTask, onClearActiveTask, onSessionSaved }) {
       const [isSelecting, setIsSelecting] = useState(false);
       const [timeLeft, setTimeLeft] = useState(25 * 60);
       const [selectedMinutes, setSelectedMinutes] = useState(25);
@@ -432,6 +570,25 @@
         setIsRunning(false);
         setTimeLeft(selectedMinutes * 60);
         setSessionSecondsPassed(0);
+        setCompanionState('idle');
+      };
+
+      // CompanionStateEngine hook-in: Start/Pause are the two REAL, existing
+      // user actions that should drive the Companion's state — nothing here
+      // invents a timer or fake signal, it only reacts to the same click
+      // that already starts/pauses the timer.
+      const handleToggleRunning = () => {
+        if (isRunning) {
+          setIsRunning(false);
+          setCompanionState('break');
+        } else {
+          // A fresh start (from idle/session_complete) plays the one-time
+          // study_start transition; resuming from a break goes straight
+          // back to reading so a short pause doesn't replay the ~20s clip.
+          const isFreshStart = companionState === 'idle' || companionState === 'session_complete';
+          setIsRunning(true);
+          setCompanionState(isFreshStart ? 'study_start' : 'reading');
+        }
       };
 
       const handleComplete = async () => {
@@ -465,31 +622,18 @@
                 <h3 className="font-bold text-slate-800 text-sm">✨ همراه مطالعه‌ات را انتخاب کن:</h3>
                 <button onClick={() => setIsSelecting(false)} className="text-xs text-slate-400 hover:text-slate-600">بستن ✕</button>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {COMPANIONS.map(b => (
-                  <div
-                    key={b.id}
-                    onClick={() => {
-                      setActiveCompanion(b);
-                      localStorage.setItem('study_companion_id', b.id);
-                      setIsSelecting(false);
-                    }}
-                    className={`cursor-pointer p-3.5 rounded-2xl border text-center transition-all ${
-                      activeCompanion.id === b.id 
-                        ? 'border-indigo-600 bg-indigo-50/80 shadow-md scale-105' 
-                        : 'border-slate-100 bg-white hover:border-indigo-200'
-                    }`}
-                  >
-                    <div className="text-3xl mb-1.5">{b.emoji}</div>
-                    <div className="font-bold text-xs text-slate-800">{b.name}</div>
-                    <div className="text-[10px] text-slate-400 mt-1">{b.title}</div>
-                  </div>
-                ))}
-              </div>
+              <CompanionSelector
+                activeCompanion={activeCompanion}
+                onSelect={(b) => {
+                  setActiveCompanion(b);
+                  localStorage.setItem('study_companion_id', b.id);
+                  setIsSelecting(false);
+                }}
+              />
             </div>
           ) : (
             <div className="cozy-night-room rounded-3xl h-[480px] sm:h-[540px] text-white shadow-2xl relative flex flex-col justify-between p-6 sm:p-8 border border-indigo-500/25">
-              <IllustratedFrameCharacter companion={activeCompanion} />
+              <CompanionStage companion={activeCompanion} state={companionState} onStateEnded={setCompanionState} />
 
               <div className="relative z-10 space-y-2">
                 {activeStudyTask && (
@@ -556,7 +700,7 @@
 
                 <div className="flex items-center justify-center gap-3">
                   <button
-                    onClick={() => setIsRunning(!isRunning)}
+                    onClick={handleToggleRunning}
                     className={`px-8 py-3 rounded-2xl text-xs font-bold text-white shadow-xl transition-all ${
                       isRunning ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/30' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/40'
                     }`}
@@ -654,6 +798,25 @@
 
       const [activeCompanion, setActiveCompanion] = useState(COMPANIONS[0]);
       const [activeStudyTask, setActiveStudyTask] = useState(null);
+      const [companionState, setCompanionState] = useState('idle');
+      const companionCelebrationTimeout = useRef(null);
+
+      // CompanionStateEngine: the ONLY place the Companion reacts to the
+      // real task_completed event (never the source of truth for
+      // completion itself — Task.status already was). Registered once at
+      // the App level (stable, empty dependency array) and cleaned up on
+      // unmount, so no duplicate listeners accumulate on re-render.
+      useEffect(() => {
+        const unsubscribe = AppEvents.on('task_completed', () => {
+          setCompanionState('session_complete');
+          if (companionCelebrationTimeout.current) clearTimeout(companionCelebrationTimeout.current);
+          companionCelebrationTimeout.current = setTimeout(() => setCompanionState('idle'), 4000);
+        });
+        return () => {
+          unsubscribe();
+          if (companionCelebrationTimeout.current) clearTimeout(companionCelebrationTimeout.current);
+        };
+      }, []);
 
       const handleStudyTask = (task) => {
         const relatedPath = paths.find(p => p.id === task.pathId);
@@ -1008,8 +1171,6 @@
 
       return (
         <div className="min-h-screen flex bg-[#FAF9FD] relative">
-          <FloatingLivingPetsWidget activeCompanion={activeCompanion} setActiveCompanion={setActiveCompanion} />
-
           <aside className="hidden md:flex flex-col w-64 bg-white border-l border-slate-200/80 p-6 justify-between fixed top-0 bottom-0 right-0 z-20">
             <div className="space-y-6">
               <div className="flex items-center gap-3">
@@ -1105,6 +1266,8 @@
                 <FocusRoomView
                   activeCompanion={activeCompanion}
                   setActiveCompanion={setActiveCompanion}
+                  companionState={companionState}
+                  setCompanionState={setCompanionState}
                   activeStudyTask={activeStudyTask}
                   onClearActiveTask={() => setActiveStudyTask(null)}
                   onSessionSaved={() => { triggerRefresh(); syncPush(); }}
@@ -1701,27 +1864,79 @@
       );
     }
 
+    // PathGoalsSection — Goal creation now runs through the Goal Type
+    // Classifier (classifyGoalType) before saving, collects only the
+    // relevant dynamic setup questions for the chosen type, and supports
+    // editing an existing Goal's type/setupData in place (db.goals.update,
+    // never delete+recreate — Path/Topics/Tasks/Sessions are untouched
+    // because they live in separate tables and are never rewritten here).
     function PathGoalsSection({ path, goals, triggerRefresh }) {
       const [showAddGoal, setShowAddGoal] = useState(false);
+      const [creationStep, setCreationStep] = useState('title'); // 'title' | 'confirmType' | 'setup'
       const [goalTitle, setGoalTitle] = useState('');
-      const [goalTargetMonth, setGoalTargetMonth] = useState('');
+      const [suggestion, setSuggestion] = useState(null);
+      const [selectedType, setSelectedType] = useState(null);
+      const [showManualTypePicker, setShowManualTypePicker] = useState(false);
+      const [setupAnswers, setSetupAnswers] = useState({});
+
+      const [editingGoalId, setEditingGoalId] = useState(null);
+      const [editTitle, setEditTitle] = useState('');
+      const [editType, setEditType] = useState(null);
+      const [editSetupAnswers, setEditSetupAnswers] = useState({});
 
       const pathGoals = goals.filter(g => g.pathId === path.id);
 
-      const handleAddGoal = async (e) => {
+      const resetCreationForm = () => {
+        setCreationStep('title');
+        setGoalTitle('');
+        setSuggestion(null);
+        setSelectedType(null);
+        setShowManualTypePicker(false);
+        setSetupAnswers({});
+      };
+
+      const handleOpenAdd = () => {
+        resetCreationForm();
+        setShowAddGoal(true);
+      };
+
+      const handleCloseAdd = () => {
+        setShowAddGoal(false);
+        resetCreationForm();
+      };
+
+      const handleTitleNext = (e) => {
         e.preventDefault();
         if (!goalTitle.trim()) return;
+        const result = classifyGoalType(goalTitle.trim());
+        setSuggestion(result);
+        setSelectedType(result.type);
+        setShowManualTypePicker(!result.type); // low/zero confidence -> ask directly, no suggestion shown
+        setCreationStep('confirmType');
+      };
+
+      const handlePickType = (type) => {
+        setSelectedType(type);
+        setCreationStep('setup');
+      };
+
+      const handleCreateGoal = async (e) => {
+        e.preventDefault();
+        if (!selectedType) return;
+        const cleanSetupData = {};
+        Object.keys(setupAnswers).forEach(k => {
+          if (setupAnswers[k] && setupAnswers[k].trim()) cleanSetupData[k] = setupAnswers[k].trim();
+        });
         await db.goals.add({
           id: 'goal-' + Date.now(),
           pathId: path.id,
           title: goalTitle.trim(),
-          type: 'general',
-          targetMonth: goalTargetMonth.trim() || null,
-          progress: 0
+          type: selectedType,
+          targetMonth: null,
+          progress: 0,
+          setupData: cleanSetupData
         });
-        setGoalTitle('');
-        setGoalTargetMonth('');
-        setShowAddGoal(false);
+        handleCloseAdd();
         triggerRefresh();
       };
 
@@ -1730,12 +1945,41 @@
         triggerRefresh();
       };
 
+      const handleStartEdit = (g) => {
+        setEditingGoalId(g.id);
+        setEditTitle(g.title);
+        setEditType(g.type === 'general' ? null : g.type); // legacy goals start unclassified
+        setEditSetupAnswers(g.setupData || {});
+      };
+
+      const handleCancelEdit = () => {
+        setEditingGoalId(null);
+      };
+
+      const handleSaveEdit = async (e) => {
+        e.preventDefault();
+        if (!editTitle.trim() || !editType) return;
+        const cleanSetupData = {};
+        Object.keys(editSetupAnswers).forEach(k => {
+          if (editSetupAnswers[k] && String(editSetupAnswers[k]).trim()) cleanSetupData[k] = String(editSetupAnswers[k]).trim();
+        });
+        // .update() patches only this Goal row — id, Path, Topics, Tasks,
+        // Sessions and progress are all untouched, whatever the type change.
+        await db.goals.update(editingGoalId, {
+          title: editTitle.trim(),
+          type: editType,
+          setupData: cleanSetupData
+        });
+        setEditingGoalId(null);
+        triggerRefresh();
+      };
+
       return (
         <div className="pt-3 mt-3 border-t border-slate-100 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500">اهداف این مسیر</span>
             <button
-              onClick={() => setShowAddGoal(s => !s)}
+              onClick={() => (showAddGoal ? handleCloseAdd() : handleOpenAdd())}
               className="text-[11px] font-bold text-indigo-600 hover:underline"
             >
               {showAddGoal ? 'بستن' : '+ افزودن هدف'}
@@ -1743,28 +1987,94 @@
           </div>
 
           {showAddGoal && (
-            <form onSubmit={handleAddGoal} className="space-y-2">
-              <input
-                type="text"
-                autoFocus
-                placeholder="عنوان هدف..."
-                value={goalTitle}
-                onChange={e => setGoalTitle(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:outline-none focus:border-indigo-600"
-              />
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="ماه هدف (اختیاری)..."
-                  value={goalTargetMonth}
-                  onChange={e => setGoalTargetMonth(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:outline-none focus:border-indigo-600"
-                />
-                <button type="submit" className="bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-indigo-700 transition">
-                  ثبت
-                </button>
-              </div>
-            </form>
+            <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-3 space-y-2.5">
+              {creationStep === 'title' && (
+                <form onSubmit={handleTitleNext} className="space-y-2">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="عنوان هدف... (مثلاً: برای کنکور ارشد روانشناسی آماده بشم)"
+                    value={goalTitle}
+                    onChange={e => setGoalTitle(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2 text-xs focus:outline-none focus:border-indigo-600"
+                  />
+                  <div className="flex justify-end">
+                    <button type="submit" className="bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-indigo-700 transition">
+                      بعدی
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {creationStep === 'confirmType' && (
+                <div className="space-y-2.5">
+                  {!showManualTypePicker && suggestion?.type && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-600">
+                        به نظر می‌رسد این هدف بیشتر از نوع «<span className="font-bold text-indigo-600">{GOAL_TYPE_LABELS[suggestion.type]}</span>» است.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setCreationStep('setup')}
+                          className="bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl hover:bg-indigo-700 transition"
+                        >
+                          تأیید
+                        </button>
+                        <button
+                          onClick={() => setShowManualTypePicker(true)}
+                          className="bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-1.5 rounded-xl hover:bg-slate-100 transition"
+                        >
+                          تغییر نوع
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {showManualTypePicker && (
+                    <div className="space-y-2">
+                      <p className="text-xs text-slate-500">نوع این هدف رو انتخاب کن:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {Object.keys(GOAL_TYPE_LABELS).map(t => (
+                          <button
+                            key={t}
+                            onClick={() => handlePickType(t)}
+                            className="bg-white border border-slate-200 hover:border-indigo-400 text-slate-700 text-[11px] font-bold p-2.5 rounded-xl transition text-center"
+                          >
+                            {GOAL_TYPE_LABELS[t]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {creationStep === 'setup' && selectedType && (
+                <form onSubmit={handleCreateGoal} className="space-y-2">
+                  <p className="text-[11px] text-slate-400">
+                    نوع: <span className="font-bold text-indigo-600">{GOAL_TYPE_LABELS[selectedType]}</span>
+                  </p>
+                  {(GOAL_SETUP_QUESTIONS[selectedType] || []).map(q => (
+                    <div key={q.key}>
+                      <label className="block text-[11px] text-slate-500 mb-1">{q.label}</label>
+                      <input
+                        type="text"
+                        placeholder={q.placeholder}
+                        value={setupAnswers[q.key] || ''}
+                        onChange={e => setSetupAnswers(prev => ({ ...prev, [q.key]: e.target.value }))}
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2 text-xs focus:outline-none focus:border-indigo-600"
+                      />
+                    </div>
+                  ))}
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button type="button" onClick={() => setCreationStep('confirmType')} className="text-slate-400 text-[11px] px-2">بازگشت</button>
+                    <button type="submit" className="bg-indigo-600 text-white text-xs font-bold px-4 py-2 rounded-xl hover:bg-indigo-700 transition">
+                      ثبت هدف
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           )}
 
           {pathGoals.length === 0 ? (
@@ -1773,28 +2083,89 @@
             </div>
           ) : (
             <div className="space-y-1.5">
-              {pathGoals.map(g => (
-                <div key={g.id} className="flex items-center justify-between bg-slate-50/70 border border-slate-100 rounded-xl px-3 py-2 text-xs">
-                  <div className="min-w-0">
-                    <span className="font-bold text-slate-700">🎯 {g.title}</span>
-                    {g.targetMonth && (
-                      <span className="text-slate-400 mr-2">({g.targetMonth})</span>
-                    )}
-                    <span className="text-indigo-600 mr-2">{g.progress}%</span>
+              {pathGoals.map(g => {
+                const isLegacy = g.type === 'general' || !g.type;
+                const isEditing = editingGoalId === g.id;
+
+                if (isEditing) {
+                  return (
+                    <form key={g.id} onSubmit={handleSaveEdit} className="bg-white border border-indigo-200 rounded-xl p-3 space-y-2 text-xs">
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:outline-none focus:border-indigo-600"
+                      />
+                      <div>
+                        <label className="block text-[11px] text-slate-500 mb-1">نوع هدف</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.keys(GOAL_TYPE_LABELS).map(t => (
+                            <button
+                              type="button"
+                              key={t}
+                              onClick={() => setEditType(t)}
+                              className={`text-[11px] font-bold p-2 rounded-xl border transition text-center ${
+                                editType === t ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:border-indigo-400'
+                              }`}
+                            >
+                              {GOAL_TYPE_LABELS[t]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {editType && (GOAL_SETUP_QUESTIONS[editType] || []).map(q => (
+                        <div key={q.key}>
+                          <label className="block text-[11px] text-slate-500 mb-1">{q.label}</label>
+                          <input
+                            type="text"
+                            placeholder={q.placeholder}
+                            value={editSetupAnswers[q.key] || ''}
+                            onChange={e => setEditSetupAnswers(prev => ({ ...prev, [q.key]: e.target.value }))}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs focus:outline-none focus:border-indigo-600"
+                          />
+                        </div>
+                      ))}
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button type="button" onClick={handleCancelEdit} className="text-slate-400 px-2">لغو</button>
+                        <button type="submit" disabled={!editType} className="bg-indigo-600 text-white font-bold px-3 py-1.5 rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition">
+                          ذخیره
+                        </button>
+                      </div>
+                    </form>
+                  );
+                }
+
+                return (
+                  <div key={g.id} className="flex items-center justify-between bg-slate-50/70 border border-slate-100 rounded-xl px-3 py-2 text-xs">
+                    <div className="min-w-0">
+                      <span className="font-bold text-slate-700">🎯 {g.title}</span>
+                      {isLegacy ? (
+                        <span className="text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 mr-2 text-[10px] font-bold">
+                          نیاز به دسته‌بندی
+                        </span>
+                      ) : (
+                        <span className="text-indigo-500 mr-2 text-[10px]">{GOAL_TYPE_LABELS[g.type]}</span>
+                      )}
+                      {g.targetMonth && <span className="text-slate-400 mr-2">({g.targetMonth})</span>}
+                      <span className="text-indigo-600 mr-2">{g.progress}%</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button onClick={() => handleStartEdit(g)} className="text-indigo-600 text-[11px] font-bold hover:underline">
+                        ویرایش
+                      </button>
+                      <button onClick={() => handleDeleteGoal(g.id)} className="text-rose-500 text-[11px] font-bold hover:underline">
+                        حذف
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => handleDeleteGoal(g.id)}
-                    className="text-rose-500 text-[11px] font-bold hover:underline shrink-0"
-                  >
-                    حذف
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
       );
     }
+
 
     function PathTopicsSection({ path, topics, triggerRefresh }) {
       const [showAddTopic, setShowAddTopic] = useState(false);
